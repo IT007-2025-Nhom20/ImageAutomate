@@ -19,44 +19,6 @@ public class GraphRenderPanel : Panel
     #region Exposed Properties
 
     [Category("Node Appearance")]
-    [Description("Width of each node in the graph")]
-    [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
-    public double NodeWidth
-    {
-        get => _nodeWidth;
-        set
-        {
-            if (Math.Abs(_nodeWidth - value) > double.Epsilon)
-            {
-                _nodeWidth = value;
-                if (_graph != null)
-                    _graph.NodeWidth = value;
-                Invalidate();
-            }
-        }
-    }
-    private double _nodeWidth = 200;
-
-    [Category("Node Appearance")]
-    [Description("Height of each node in the graph")]
-    [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
-    public double NodeHeight
-    {
-        get => _nodeHeight;
-        set
-        {
-            if (Math.Abs(_nodeHeight - value) > double.Epsilon)
-            {
-                _nodeHeight = value;
-                if (_graph != null)
-                    _graph.NodeHeight = value;
-                Invalidate();
-            }
-        }
-    }
-    private double _nodeHeight = 100;
-
-    [Category("Node Appearance")]
     [Description("Outline color for the selected block")]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
     public Color SelectedBlockOutlineColor
@@ -143,8 +105,6 @@ public class GraphRenderPanel : Panel
             _graph = value;
             if (_graph != null)
             {
-                _graph.NodeWidth = _nodeWidth;
-                _graph.NodeHeight = _nodeHeight;
                 ComputeLayoutAndRender();
             }
             else
@@ -168,8 +128,7 @@ public class GraphRenderPanel : Panel
         BackColor = Color.White;
 
         // For PoC compatibility, we can initialize a default graph
-        // But standard usage should be setting the Graph property
-        _graph = new PipelineGraph(_nodeWidth, _nodeHeight);
+        _graph = new PipelineGraph();
 
         Resize += (_, _) => Invalidate();
         MouseDown += OnMouseDownPan;
@@ -180,7 +139,7 @@ public class GraphRenderPanel : Panel
 
     public void Initialize(ConvertBlock block)
     {
-        if (_graph == null) _graph = new PipelineGraph(_nodeWidth, _nodeHeight);
+        if (_graph == null) _graph = new PipelineGraph();
         _graph.CenterNode = _graph.AddNode(block);
         ComputeLayoutAndRender();
     }
@@ -295,76 +254,44 @@ public class GraphRenderPanel : Panel
 
         var bounds = _graph.GeomGraph.BoundingBox;
 
-        // Transform Graph Bounding Box to Screen Coordinates
-        // Center of Panel is (Width/2, Height/2)
-        // Transform: Translate(Center + Pan) * Scale(Zoom, -Zoom)
-
         float cx = Width / 2.0f + _panOffset.X;
         float cy = Height / 2.0f + _panOffset.Y;
 
-        // MSAGL Bounds (World)
         float wx1 = (float)bounds.Left;
         float wx2 = (float)bounds.Right;
         float wy1 = (float)bounds.Bottom;
         float wy2 = (float)bounds.Top;
-
-        // Convert to Screen
-        // ScreenX = WorldX * Scale + CX
-        // ScreenY = WorldY * -Scale + CY
 
         float sx1 = wx1 * _renderScale + cx;
         float sx2 = wx2 * _renderScale + cx;
         float sy1 = wy1 * -_renderScale + cy;
         float sy2 = wy2 * -_renderScale + cy;
 
-        // Determine Screen Bounding Box of the Graph
-        // Note: Y is flipped, so sy2 (from Top) will be smaller (higher on screen) than sy1 (from Bottom)
         float graphScreenLeft = Math.Min(sx1, sx2);
         float graphScreenRight = Math.Max(sx1, sx2);
         float graphScreenTop = Math.Min(sy1, sy2);
         float graphScreenBottom = Math.Max(sy1, sy2);
 
-        float graphWidth = graphScreenRight - graphScreenLeft;
-        float graphHeight = graphScreenBottom - graphScreenTop;
-
-        // Margin to keep visible
         float margin = 30;
 
-        // If graph is smaller than viewport, center it or keep inside?
-        // Usually "Clamping" means don't let it go too far away.
-        // Constraint: Keep at least 'margin' pixels visible on all sides?
-        // Or: Constrain the center?
-
-        // Let's ensure at least (margin) overlap between GraphRect and ViewportRect.
-
-        // Viewport: (0, 0, Width, Height)
-
-        // Correct Horizontal
         if (graphScreenRight < margin)
         {
-            // Graph is too far left
-            // shift right so graphScreenRight = margin
             float shift = margin - graphScreenRight;
             _panOffset.X += shift;
         }
         else if (graphScreenLeft > Width - margin)
         {
-            // Graph is too far right
-            // shift left so graphScreenLeft = Width - margin
             float shift = (Width - margin) - graphScreenLeft;
             _panOffset.X += shift;
         }
 
-        // Correct Vertical
         if (graphScreenBottom < margin)
         {
-            // Graph is too high up (bottom is above top margin)
             float shift = margin - graphScreenBottom;
             _panOffset.Y += shift;
         }
         else if (graphScreenTop > Height - margin)
         {
-            // Graph is too low down
             float shift = (Height - margin) - graphScreenTop;
             _panOffset.Y += shift;
         }
@@ -389,9 +316,6 @@ public class GraphRenderPanel : Panel
         layout.Run();
 
         graph.UpdateBoundingBox();
-
-        // Auto-center camera on first layout if we are strictly enforcing bounds,
-        // or just to be nice.
         CenterCameraOnGraph();
 
         Invalidate();

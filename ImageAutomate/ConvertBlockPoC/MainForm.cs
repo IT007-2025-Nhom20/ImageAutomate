@@ -37,10 +37,24 @@ public class MainForm : Form
 
     private void InitializeGraph()
     {
-        // Create Blocks
-        var source = new ConvertBlock { TargetFormat = ImageFormat.Jpeg, JpegOptions = { Quality = 90 } };
-        var process = new ConvertBlock { TargetFormat = ImageFormat.Png, AlwaysReEncode = true };
-        var output = new ConvertBlock { TargetFormat = ImageFormat.WebP };
+        // Create Blocks with specified Width and Height as per PoC requirements
+        var source = new ConvertBlock {
+            TargetFormat = ImageFormat.Jpeg,
+            JpegOptions = { Quality = 90 },
+            Width = 200,
+            Height = 120
+        };
+        var process = new ConvertBlock {
+            TargetFormat = ImageFormat.Png,
+            AlwaysReEncode = true,
+            Width = 200,
+            Height = 120
+        };
+        var output = new ConvertBlock {
+            TargetFormat = ImageFormat.WebP,
+            Width = 200,
+            Height = 120
+        };
 
         // Initialize Panel
         _propertyGrid.SelectedObject = _graphPanel;
@@ -51,7 +65,11 @@ public class MainForm : Form
         _graphPanel.AddBlockAndConnect(output, process);
 
         // Add some branching to test layout
-        var branch = new ConvertBlock { TargetFormat = ImageFormat.Bmp };
+        var branch = new ConvertBlock {
+            TargetFormat = ImageFormat.Bmp,
+            Width = 200,
+            Height = 120
+        };
         _graphPanel.AddBlockAndConnect(branch, source);
     }
 }

@@ -35,6 +35,8 @@ public class ConvertBlock : IBlock
     private bool _alwaysReEncode = false;
     private JpegEncodingOptions _jpegOptions = new JpegEncodingOptions();
     private PngEncodingOptions _pngOptions = new PngEncodingOptions();
+    private double _width = 200;
+    private double _height = 100;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -59,6 +61,36 @@ public class ConvertBlock : IBlock
                 _ => "Options: Default"
             };
             return $"Format: {TargetFormat}\nRe-encode: {AlwaysReEncode}\n{opts}";
+        }
+    }
+
+    [Category("Layout")]
+    [Description("Width of the block node")]
+    public double Width
+    {
+        get => _width;
+        set
+        {
+            if (Math.Abs(_width - value) > double.Epsilon)
+            {
+                _width = value;
+                OnPropertyChanged(nameof(Width));
+            }
+        }
+    }
+
+    [Category("Layout")]
+    [Description("Height of the block node")]
+    public double Height
+    {
+        get => _height;
+        set
+        {
+            if (Math.Abs(_height - value) > double.Epsilon)
+            {
+                _height = value;
+                OnPropertyChanged(nameof(Height));
+            }
         }
     }
 

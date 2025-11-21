@@ -16,4 +16,14 @@ public interface IBlock : INotifyPropertyChanged
     /// Description or summary of the block's configuration.
     /// </summary>
     string ConfigurationSummary { get; }
+
+    /// <summary>
+    /// Width of the block node in the graph.
+    /// </summary>
+    double Width { get; }
+
+    /// <summary>
+    /// Height of the block node in the graph.
+    /// </summary>
+    double Height { get; }
 }
