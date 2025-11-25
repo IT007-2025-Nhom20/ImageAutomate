@@ -7,6 +7,11 @@ public class MainForm : Form
     private GraphRenderPanel _graphPanel;
     private PropertyGrid _propertyGrid;
 
+    void OnBlockChanged(object? sender, EventArgs e)
+    {
+        _graphPanel.Invalidate();
+    }
+
     public MainForm()
     {
         Text = "Pipeline Graph PoC";
@@ -44,6 +49,7 @@ public class MainForm : Form
             Width = 200,
             Height = 120
         };
+        source.PropertyChanged += OnBlockChanged;
         var process = new ConvertBlock {
             TargetFormat = ImageFormat.Png,
             AlwaysReEncode = true,
@@ -55,12 +61,13 @@ public class MainForm : Form
             Width = 200,
             Height = 120
         };
+        var selected = (_graphPanel.Graph?.CenterNode) ?? throw new Exception();
 
         // Initialize Panel
-        _propertyGrid.SelectedObject = _graphPanel;
+        _graphPanel.Initialize(source);
 
         // Setup Graph
-        _graphPanel.Initialize(source);
+        _propertyGrid.SelectedObject = selected.UserData;
         _graphPanel.AddBlockAndConnect(process, source);
         _graphPanel.AddBlockAndConnect(output, process);
 
