@@ -61,15 +61,15 @@ public class MainForm : Form
             Width = 200,
             Height = 120
         };
-        var selected = (_graphPanel.Graph?.CenterNode) ?? throw new Exception();
 
         // Initialize Panel
         _graphPanel.Initialize(source);
 
         // Setup Graph
-        _propertyGrid.SelectedObject = selected.UserData;
         _graphPanel.AddBlockAndConnect(process, source);
         _graphPanel.AddBlockAndConnect(output, process);
+        var selected = (_graphPanel.Graph?.CenterNode) ?? throw new Exception();
+        _propertyGrid.SelectedObject = selected.UserData;
 
         // Add some branching to test layout
         var branch = new ConvertBlock {
