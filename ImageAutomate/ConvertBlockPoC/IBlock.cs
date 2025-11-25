@@ -20,10 +20,10 @@ public interface IBlock : INotifyPropertyChanged
     /// <summary>
     /// Width of the block node in the graph.
     /// </summary>
-    double Width { get; }
+    double Width { get; set; }
 
     /// <summary>
     /// Height of the block node in the graph.
     /// </summary>
-    double Height { get; }
+    double Height { get; set; }
 }
