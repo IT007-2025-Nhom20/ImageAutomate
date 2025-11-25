@@ -308,7 +308,7 @@ public class GraphRenderPanel : Panel
             Transformation = PlaneTransformation.Rotation(Math.PI / 2),
             LayerSeparation = _columnSpacing,
             NodeSeparation = _nodeSpacing,
-            EdgeRoutingSettings = { EdgeRoutingMode = Microsoft.Msagl.Core.Routing.EdgeRoutingMode.Spline },
+            EdgeRoutingSettings = { EdgeRoutingMode = Microsoft.Msagl.Core.Routing.EdgeRoutingMode.None },
             RandomSeedForOrdering = 0
         };
 
