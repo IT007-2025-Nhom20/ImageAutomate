@@ -119,16 +119,10 @@ public class GraphRenderPanel : Panel
     private Point _lastMousePos;
     private bool _isPanning;
 
-    // Deprecated but kept for PoC compatibility
-    public PipelineGraph PGraph => _graph ?? throw new InvalidOperationException("Graph not initialized");
-
     public GraphRenderPanel()
     {
         DoubleBuffered = true;
         BackColor = Color.White;
-
-        // For PoC compatibility, we can initialize a default graph
-        _graph = new PipelineGraph();
 
         Resize += (_, _) => Invalidate();
         MouseDown += OnMouseDownPan;

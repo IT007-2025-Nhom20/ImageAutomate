@@ -4,6 +4,7 @@ namespace ConvertBlockPoC;
 
 public class MainForm : Form
 {
+    private PipelineGraph _graph = new();
     private GraphRenderPanel _graphPanel;
     private PropertyGrid _propertyGrid;
 
@@ -25,7 +26,8 @@ public class MainForm : Form
 
         _graphPanel = new GraphRenderPanel
         {
-            Dock = DockStyle.Fill
+            Dock = DockStyle.Fill,
+            Graph = _graph
         };
 
         _propertyGrid = new PropertyGrid
