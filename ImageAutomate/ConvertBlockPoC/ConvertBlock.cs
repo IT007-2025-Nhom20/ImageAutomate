@@ -67,12 +67,30 @@ public class ConvertBlock : IBlock
             OnPropertyChanged(nameof(JpegOptions));
         else if (sender is PngEncodingOptions)
             OnPropertyChanged(nameof(PngOptions));
+        else if (sender is BmpEncodingOptions)
+            OnPropertyChanged(nameof(BmpOptions));
+        else if (sender is GifEncodingOptions)
+            OnPropertyChanged(nameof(GifOptions));
+        else if (sender is TiffEncodingOptions)
+            OnPropertyChanged(nameof(TiffOptions));
+        else if (sender is TgaEncodingOptions)
+            OnPropertyChanged(nameof(TgaOptions));
+        else if (sender is WebPEncodingOptions)
+            OnPropertyChanged(nameof(WebPOptions));
+        else if (sender is QoiEncodingOptions)
+            OnPropertyChanged(nameof(QoiOptions));
     }
 
     public ConvertBlock()
     {
         _jpegOptions.PropertyChanged += Options_OnPropertyChanged;
         _pngOptions.PropertyChanged += Options_OnPropertyChanged;
+        _bmpOptions.PropertyChanged += Options_OnPropertyChanged;
+        _gifOptions.PropertyChanged += Options_OnPropertyChanged;
+        _tiffOptions.PropertyChanged += Options_OnPropertyChanged;
+        _tgaOptions.PropertyChanged += Options_OnPropertyChanged;
+        _webpOptions.PropertyChanged += Options_OnPropertyChanged;
+        _qoiOptions.PropertyChanged += Options_OnPropertyChanged;
     }
 
     [Browsable(false)]
@@ -87,6 +105,14 @@ public class ConvertBlock : IBlock
             {
                 ImageFormat.Jpeg => $"Quality: {JpegOptions.Quality}",
                 ImageFormat.Png => $"Compression: {PngOptions.CompressionLevel}",
+                ImageFormat.Bmp => $"BitsPerPixel: {BmpOptions.BitsPerPixel}",
+                ImageFormat.Gif => $"ColorPaletteSize: {GifOptions.ColorPaletteSize}\n" +
+                                   $"UseDithering: {GifOptions.UseDithering}",
+                ImageFormat.Tiff => $"Compression: {TiffOptions.Compression}",
+                ImageFormat.Tga => $"Compression: {TgaOptions.Compress}",
+                ImageFormat.WebP => $"LossLess: {WebPOptions.Lossless}\n" +
+                                    $"Quality: {WebPOptions.Quality}",
+                ImageFormat.Qoi =>$"Include Alpha: {QoiOptions.IncludeAlpha}",
                 _ => "Options: Default"
             };
             return $"Format: {TargetFormat}\nRe-encode: {AlwaysReEncode}\n{opts}";
@@ -206,20 +232,28 @@ public class ConvertBlock : IBlock
         get => _bmpOptions;
         set
         {
+            if (_bmpOptions != null)
+                _bmpOptions.PropertyChanged -= Options_OnPropertyChanged;
             _bmpOptions = value;
+            if (_bmpOptions != null)
+                _bmpOptions.PropertyChanged += Options_OnPropertyChanged;
             OnPropertyChanged(nameof(BmpOptions));
         }
     }
 
     [Category("Encoding Options")]
-    [Description("BMP encoding parameters")]
+    [Description("GIF encoding parameters")]
     [TypeConverter(typeof(ExpandableObjectConverter))]
     public GifEncodingOptions GifOptions
     {
         get => _gifOptions;
         set
         {
+            if (_gifOptions != null)
+                _gifOptions.PropertyChanged -= Options_OnPropertyChanged;
             _gifOptions = value;
+            if (_gifOptions != null)
+                _gifOptions.PropertyChanged += Options_OnPropertyChanged;
             OnPropertyChanged(nameof(GifOptions));
         }
     }
@@ -232,7 +266,11 @@ public class ConvertBlock : IBlock
         get => _tiffOptions;
         set
         {
+            if (_tiffOptions != null)
+                _tiffOptions.PropertyChanged -= Options_OnPropertyChanged;
             _tiffOptions = value;
+            if (_tiffOptions != null)
+                _tiffOptions.PropertyChanged += Options_OnPropertyChanged;
             OnPropertyChanged(nameof(TiffOptions));
         }
     }
@@ -244,8 +282,12 @@ public class ConvertBlock : IBlock
     {
         get => _tgaOptions;
         set 
-        { 
-            _tgaOptions = value; 
+        {
+            if (_tgaOptions != null)
+                _tgaOptions.PropertyChanged -= Options_OnPropertyChanged;
+            _tgaOptions = value;
+            if (_tgaOptions != null)
+                _tgaOptions.PropertyChanged += Options_OnPropertyChanged;
             OnPropertyChanged(nameof(TgaOptions)); 
         }
     }
@@ -258,7 +300,11 @@ public class ConvertBlock : IBlock
         get => _webpOptions;
         set
         {
+            if (_webpOptions != null)
+                _webpOptions.PropertyChanged  -= Options_OnPropertyChanged;
             _webpOptions = value;
+            if (_webpOptions != null)
+                _webpOptions.PropertyChanged -= Options_OnPropertyChanged;
             OnPropertyChanged(nameof(WebPOptions));
         }
     }
@@ -270,7 +316,11 @@ public class ConvertBlock : IBlock
         get => _qoiOptions;
         set
         {
+            if (_qoiOptions != null)
+                _qoiOptions .PropertyChanged -= Options_OnPropertyChanged;
             _qoiOptions = value;
+            if (_qoiOptions != null)
+                _qoiOptions.PropertyChanged -= Options_OnPropertyChanged;
             OnPropertyChanged(nameof(QoiOptions));
         }
     }
