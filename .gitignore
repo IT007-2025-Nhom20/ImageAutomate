@@ -415,4 +415,7 @@ FodyWeavers.xsd
 *.msi
 *.msix
 *.msm
+
+.vscode/**
+
 *.msp
