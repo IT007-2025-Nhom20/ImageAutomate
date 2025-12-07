@@ -1,4 +1,16 @@
 ﻿using ImageAutomate.Core;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Bmp;
+using SixLabors.ImageSharp.Formats.Gif;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Pbm;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Formats.Qoi;
+using SixLabors.ImageSharp.Formats.Tga;
+using SixLabors.ImageSharp.Formats.Tiff;
+using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.PixelFormats;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 
@@ -312,7 +324,7 @@ public class ConvertBlock : IBlock
                 _webpOptions.PropertyChanged -= Options_OnPropertyChanged;
             _webpOptions = value;
             if (_webpOptions != null)
-                _webpOptions.PropertyChanged -= Options_OnPropertyChanged;
+                _webpOptions.PropertyChanged += Options_OnPropertyChanged;
             OnPropertyChanged(nameof(WebPOptions));
         }
     }
@@ -328,7 +340,7 @@ public class ConvertBlock : IBlock
                 _qoiOptions.PropertyChanged -= Options_OnPropertyChanged;
             _qoiOptions = value;
             if (_qoiOptions != null)
-                _qoiOptions.PropertyChanged -= Options_OnPropertyChanged;
+                _qoiOptions.PropertyChanged += Options_OnPropertyChanged;
             OnPropertyChanged(nameof(QoiOptions));
         }
     }
@@ -411,13 +423,148 @@ public class ConvertBlock : IBlock
     }
     private IBasicWorkItem? ConvertWorkItem(IBasicWorkItem item)
     {
-        // TODO:
-        // 1. Đọc image từ item (tùy IBasicWorkItem của bạn)
-        // 2. Nếu !AlwaysReEncode và format đã là TargetFormat => return item
-        // 3. Dùng ImageSharp để re-encode sang TargetFormat với options tương ứng
-        // 4. Tạo IBasicWorkItem mới (hoặc cập nhật) mang data mới
-        return item;
+        if (item is null)
+            throw new ArgumentNullException(nameof(item));
+
+        // 1. Lấy ảnh từ metadata
+        if (!item.Metadata.TryGetValue("ImageData", out var imageDataObj) ||
+            imageDataObj is not byte[] imageBytes ||
+            imageBytes.Length == 0)
+        {
+            // Không có dữ liệu ảnh → trả nguyên item, cho phép pipeline pass-through
+            return item;
+        }
+
+        // 2. Lấy format hiện tại (nếu có) để quyết định có cần re-encode hay không
+        ImageFormat? currentFormat = null;
+        if (item.Metadata.TryGetValue("Format", out var fmtObj) && fmtObj is ImageFormat fmtEnum)
+        {
+            currentFormat = fmtEnum;
+        }
+
+        // Nếu không bắt buộc re-encode và format đã trùng target => bỏ qua, trả item gốc
+        if (!AlwaysReEncode && currentFormat.HasValue && currentFormat.Value == TargetFormat)
+        {
+            return item;
+        }
+
+        try
+        {
+            // 3. Load ảnh bằng ImageSharp 3.x
+            using var image = Image.Load<Rgba32>(imageBytes);
+
+            // 4. Chọn encoder theo TargetFormat + options
+            IImageEncoder encoder = CreateEncoderForTargetFormat();
+
+            // 5. Encode lại sang format mới
+            using var ms = new MemoryStream();
+            image.Save(ms, encoder);
+            var convertedBytes = ms.ToArray();
+
+            // 6. Clone metadata cũ và cập nhật
+            var newMetadata = new Dictionary<string, object>(item.Metadata)
+            {
+                ["ImageData"] = convertedBytes,
+                ["Format"] = TargetFormat,
+                ["ConvertedAtUtc"] = DateTime.UtcNow
+            };
+
+            // Giữ lại id cũ hay tạo id mới tuỳ design – ở đây tạo WorkItem mới
+            return new BasicWorkItem(newMetadata);
+        }
+        catch (Exception ex) when (ex is UnknownImageFormatException
+                                   || ex is InvalidImageContentException
+                                   || ex is NotSupportedException
+                                   || ex is IOException)
+        {
+            
+            throw new InvalidOperationException(
+                $"ConvertBlock: Failed to convert work item {item.Id} to format {TargetFormat}: {ex.Message}", ex);
+        }
     }
+
+    private IImageEncoder CreateEncoderForTargetFormat()
+    {
+        switch (TargetFormat)
+        {
+            case ImageFormat.Jpeg:
+                return new JpegEncoder
+                {
+                    Quality = JpegOptions.Quality
+                };
+
+            case ImageFormat.Png:
+                return new PngEncoder
+                {
+                    CompressionLevel =
+                        (SixLabors.ImageSharp.Formats.Png.PngCompressionLevel)(int)PngOptions.CompressionLevel
+                };
+
+            case ImageFormat.Bmp:
+                return new BmpEncoder
+                {
+                    BitsPerPixel = (BmpOptions.BitsPerPixel == BmpBitsPerPixel.Pixel24)
+                       ? SixLabors.ImageSharp.Formats.Bmp.BmpBitsPerPixel.Pixel24
+                       : SixLabors.ImageSharp.Formats.Bmp.BmpBitsPerPixel.Pixel32
+                };
+
+            case ImageFormat.Gif:
+                return new GifEncoder();
+
+            case ImageFormat.Tiff:
+                return new TiffEncoder
+                {
+                    Compression =
+                        (TiffOptions.Compression == TiffCompression.None) ? SixLabors.ImageSharp.Formats.Tiff.Constants.TiffCompression.None :
+                        (TiffOptions.Compression == TiffCompression.Lzw) ? SixLabors.ImageSharp.Formats.Tiff.Constants.TiffCompression.Lzw :
+                        (TiffOptions.Compression == TiffCompression.Ccitt4) ? SixLabors.ImageSharp.Formats.Tiff.Constants.TiffCompression.CcittGroup4Fax :
+                        (TiffOptions.Compression == TiffCompression.Rle) ? SixLabors.ImageSharp.Formats.Tiff.Constants.TiffCompression.PackBits :
+                        SixLabors.ImageSharp.Formats.Tiff.Constants.TiffCompression.Deflate
+                };
+
+            case ImageFormat.Tga:
+                return new TgaEncoder
+                {
+                    Compression = TgaOptions.Compress
+                        ? TgaCompression.RunLength
+                        : TgaCompression.None
+                };
+
+            case ImageFormat.WebP:
+                return new WebpEncoder
+                {
+                    Quality = (int)Math.Clamp(WebPOptions.Quality, 0f, 100f),
+                    FileFormat = WebPOptions.Lossless
+                        ? WebpFileFormatType.Lossless
+                        : WebpFileFormatType.Lossy
+                };
+
+            case ImageFormat.Qoi:
+                return new QoiEncoder
+                {
+                    Channels = QoiOptions.IncludeAlpha ? QoiChannels.Rgba : QoiChannels.Rgb
+                };
+
+            case ImageFormat.Pbm:
+                // Không có options riêng, dùng encoder mặc định
+                return new PbmEncoder();
+
+            default:
+                throw new NotSupportedException($"ConvertBlock: Target format '{TargetFormat}' is not supported.");
+        }
+    }
+    private sealed class BasicWorkItem : IBasicWorkItem
+    {
+        public Guid Id { get; }
+        public IDictionary<string, object> Metadata { get; }
+
+        public BasicWorkItem(IDictionary<string, object> metadata)
+        {
+            Id = Guid.NewGuid();
+            Metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+        }
+    }
+
     #endregion
 
     #region Disposing
