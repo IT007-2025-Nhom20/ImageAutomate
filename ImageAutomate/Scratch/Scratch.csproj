@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ImageAutomate.Core\ImageAutomate.Core.csproj" />
+    <ProjectReference Include="..\ImageAutomate.StandardBlocks\ImageAutomate.StandardBlocks.csproj" />
   </ItemGroup>
 
 </Project>
