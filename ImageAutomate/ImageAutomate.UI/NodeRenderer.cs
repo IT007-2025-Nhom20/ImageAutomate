@@ -5,7 +5,7 @@ using GeomEdge = Microsoft.Msagl.Core.Layout.Edge;
 
 using ImageAutomate.Core;
 
-namespace ConvertBlockPoC;
+namespace ImageAutomate.UI;
 
 public static class NodeRenderer
 {

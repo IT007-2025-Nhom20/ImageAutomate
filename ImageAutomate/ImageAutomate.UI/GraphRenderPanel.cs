@@ -9,8 +9,12 @@ using Microsoft.Msagl.Layout.Layered;
 using System.ComponentModel;
 using System.Drawing.Drawing2D;
 using ImageAutomate.Core;
+using GeomNode = Microsoft.Msagl.Core.Layout.Node;
+using GeomGraph = Microsoft.Msagl.Core.Layout.GeometryGraph;
+using GeomEdge = Microsoft.Msagl.Core.Layout.Edge;
+using MsaglPoint = Microsoft.Msagl.Core.Geometry.Point;
 
-namespace ConvertBlockPoC;
+namespace ImageAutomate.UI;
 
 public class GraphRenderPanel : Panel
 {
@@ -113,6 +117,8 @@ public class GraphRenderPanel : Panel
     }
 
     private PipelineGraph? _graph;
+    private GeomGraph _geomGraph = new();
+    private Dictionary<IBlock, GeomNode> _blockToNodeMap = new();
     private PointF _panOffset = new(0, 0);
     private Point _lastMousePos;
     private bool _isPanning;
@@ -254,7 +260,7 @@ public class GraphRenderPanel : Panel
     {
         if (AllowOutOfScreenPan || _graph == null) return;
 
-        var bounds = _graph.GeomGraph.BoundingBox;
+        var bounds = _geomGraph.BoundingBox;
 
         float cx = Width / 2.0f + _panOffset.X;
         float cy = Height / 2.0f + _panOffset.Y;
@@ -299,11 +305,44 @@ public class GraphRenderPanel : Panel
         }
     }
 
+    private void RebuildVisualGraph()
+    {
+        _geomGraph = new GeomGraph();
+        _blockToNodeMap.Clear();
+
+        if (_graph == null) return;
+
+        foreach (var block in _graph.Blocks)
+        {
+            var geomNode = new GeomNode(
+                CurveFactory.CreateRectangle(block.Width, block.Height, new MsaglPoint(0, 0))
+            )
+            {
+                UserData = block
+            };
+
+            _geomGraph.Nodes.Add(geomNode);
+            _blockToNodeMap[block] = geomNode;
+        }
+
+        foreach (var conn in _graph.Connections)
+        {
+            if (_blockToNodeMap.TryGetValue(conn.Source, out var sourceNode) &&
+                _blockToNodeMap.TryGetValue(conn.Target, out var targetNode))
+            {
+                // TODO: model Sockets in MSAGL. Currently NodeRenderer
+                // handles the socket visual positions.
+                var edge = new GeomEdge(sourceNode, targetNode);
+                _geomGraph.Edges.Add(edge);
+            }
+        }
+    }
+
     private void ComputeLayoutAndRender()
     {
         if (_graph == null) return;
 
-        var graph = _graph.GeomGraph;
+        RebuildVisualGraph();
 
         var settings = new SugiyamaLayoutSettings
         {
@@ -314,10 +353,10 @@ public class GraphRenderPanel : Panel
             RandomSeedForOrdering = 0
         };
 
-        var layout = new LayeredLayout(graph, settings);
+        var layout = new LayeredLayout(_geomGraph, settings);
         layout.Run();
 
-        graph.UpdateBoundingBox();
+        _geomGraph.UpdateBoundingBox();
         CenterCameraOnGraph();
 
         Invalidate();
@@ -325,8 +364,9 @@ public class GraphRenderPanel : Panel
 
     private void CenterCameraOnGraph()
     {
-        if (_graph == null) return;
-        var bounds = _graph.GeomGraph.BoundingBox;
+        if (_graph == null)
+            return;
+        var bounds = _geomGraph.BoundingBox;
 
         float wx = (float)bounds.Center.X;
         float wy = (float)bounds.Center.Y;
@@ -341,8 +381,7 @@ public class GraphRenderPanel : Panel
 
         if (_graph == null)
             return;
-        var graph = _graph.GeomGraph;
-        if (graph.Nodes.Count == 0)
+        if (_geomGraph.Nodes.Count == 0)
             return;
 
         Graphics g = e.Graphics;
@@ -354,12 +393,12 @@ public class GraphRenderPanel : Panel
         transform.Scale(_renderScale, -_renderScale);
         g.Transform = transform;
 
-        foreach (var geomEdge in graph.Edges)
+        foreach (var geomEdge in _geomGraph.Edges)
             NodeRenderer.DrawEdge(g, geomEdge, _socketRadius);
 
-        foreach (var geomNode in graph.Nodes)
+        foreach (var geomNode in _geomGraph.Nodes)
         {
-            bool isSelected = geomNode == _graph.CenterNode;
+            bool isSelected = geomNode == _graph.Center;
             NodeRenderer.OptimizedStrategy.DrawNode(g, geomNode, isSelected, _selectedBlockOutlineColor, _socketRadius);
         }
 
