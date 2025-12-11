@@ -13,10 +13,18 @@ using GeomNode = Microsoft.Msagl.Core.Layout.Node;
 using GeomGraph = Microsoft.Msagl.Core.Layout.GeometryGraph;
 using GeomEdge = Microsoft.Msagl.Core.Layout.Edge;
 using MsaglPoint = Microsoft.Msagl.Core.Geometry.Point;
-using System.Diagnostics;
 
 namespace ImageAutomate.UI;
 
+/// <summary>
+/// Custom panel for rendering and interacting with pipeline graph. Support node visualization, layout,
+/// selection, zooming, and panning operations.
+/// </summary>
+/// <remarks>GraphRenderPanel enables visualization and manipulation of directed graphs composed of blocks and
+/// connections. It supports interactive features such as selecting nodes, centering the view, zooming, and panning,
+/// with configurable appearance and layout options. The panel automatically updates its rendering when relevant
+/// properties or the underlying graph change. Thread safety is not guaranteed; all interactions should occur on the UI
+/// thread.</remarks>
 public class GraphRenderPanel : Panel
 {
     #region Exposed Properties
@@ -138,24 +146,43 @@ public class GraphRenderPanel : Panel
         MouseWheel += OnMouseWheelZoom;
     }
 
+    /// <summary>
+    /// Adds the specified blocks to the graph if not already present and connects the
+    /// source block's output socket to the destination block's input socket.
+    /// </summary>
+    /// <remarks>If either block is not already part of the graph, it will be added automatically before the
+    /// connection is made.</remarks>
+    /// <param name="sourceBlock">The block that provides the output socket to be connected. Cannot be null.</param>
+    /// <param name="sourceSocket">The output socket on the source block to connect. Must an Output of sourceBlock.</param>
+    /// <param name="destBlock">The block that receives the input socket connection. Cannot be null.</param>
+    /// <param name="destSocket">The input socket on the destination block to connect. Must an Input of destBlock.</param>
+    /// <exception cref="Exception">Thrown if the specified source socket is not present in the source block's Outputs collection, or if the
+    /// destination socket is not present in the destination block's Inputs collection.</exception>
     public void AddBlockAndConnect(IBlock sourceBlock, Socket sourceSocket, IBlock destBlock, Socket destSocket)
     {
         if (_graph == null)
             return;
-
-        _graph.AddBlock(sourceBlock);
-
-        if (destBlock != null)
-        {
-            if (!_graph.Blocks.Contains(destBlock))
-                _graph.AddBlock(destBlock);
-            if (destSocket != null)
-                _graph.Connect(sourceBlock, sourceSocket, destBlock, destSocket);
-        }
+        if (!_graph.Blocks.Contains(sourceBlock))
+            _graph.AddBlock(sourceBlock);
+        if (!_graph.Blocks.Contains(destBlock))
+            _graph.AddBlock(destBlock);
+        // TODO: Implement proper exception type for mismatching block and socket.
+        if (!sourceBlock.Outputs.Contains(sourceSocket))
+            throw new Exception($"Invalid socket {sourceSocket.Id} for block {sourceBlock.Name}");
+        if (!destBlock.Inputs.Contains(destSocket))
+            throw new Exception($"Invalid socket {sourceSocket.Id} for block {sourceBlock.Name}");
+        _graph.Connect(sourceBlock, sourceSocket, destBlock, destSocket);
 
         Invalidate();
     }
 
+    /// <summary>
+    /// Connects the specified source socket of the Selected block to a receiving block and socket within the graph.
+    /// </summary>
+    /// <remarks>If the graph or the Selected block is not initialized, the method return immediately.</remarks>
+    /// <param name="sourceSocket">The socket in the Selected block from which the connection originates.</param>
+    /// <param name="destBlock">The block that will be connected to the source socket.</param>
+    /// <param name="destSocket">The socket in the destination block to which the connection is made.</param>
     public void AddSuccessor(Socket sourceSocket, IBlock destBlock, Socket destSocket)
     {
         if (_graph is null)
@@ -164,7 +191,14 @@ public class GraphRenderPanel : Panel
             return;
         AddBlockAndConnect(_graph.Center, sourceSocket, destBlock, destSocket);
     }
-
+    
+    /// <summary>
+    /// Connects the specified source block to the Selected block of the graph
+    /// </summary>
+    /// <remarks>If the graph or its center block is null, the method return immediately.</remarks>
+    /// <param name="sourceBlock">The block to be added as a predecessor and connected to the center block.</param>
+    /// <param name="sourceSocket">The socket on the source block used for the connection.</param>
+    /// <param name="destSocket">The socket on the center block that will be connected to the source block.</param>
     public void AddPredecessor(IBlock sourceBlock, Socket sourceSocket, Socket destSocket)
     {
         if (_graph is null)
@@ -174,6 +208,12 @@ public class GraphRenderPanel : Panel
         AddBlockAndConnect(sourceBlock, sourceSocket, _graph.Center, destSocket);
     }
 
+    /// <summary>
+    /// Centers the camera view on the current graph
+    /// </summary>
+    /// <remarks>This method has no effect if there is no graph loaded. After centering, the view is redrawn.
+    /// Calling this method is useful after loading a new graph or when the graph's
+    /// layout changes.</remarks>
     public void CenterCameraOnGraph()
     {
         if (_graph == null)
