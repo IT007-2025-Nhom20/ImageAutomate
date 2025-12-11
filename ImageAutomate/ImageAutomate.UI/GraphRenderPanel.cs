@@ -198,6 +198,7 @@ public class GraphRenderPanel : Panel
         {
             _isPanning = true;
             _lastMousePos = e.Location;
+            _mouseDownLocation = e.Location;
             Cursor = Cursors.Hand;
         }
     }
@@ -208,6 +209,15 @@ public class GraphRenderPanel : Panel
         {
             _isPanning = false;
             Cursor = Cursors.Default;
+
+            // Check hold-to-click threshold
+            float deltaX = Math.Abs(e.X - _mouseDownLocation.X);
+            float deltaY = Math.Abs(e.Y - _mouseDownLocation.Y);
+
+            if (deltaX < ClickDragThreshold && deltaY < ClickDragThreshold)
+            {
+                HandleMouseClick(e.Location);
+            }
         }
     }
 
@@ -256,6 +266,52 @@ public class GraphRenderPanel : Panel
         ClampPanToBounds();
 
         Invalidate();
+    }
+
+    private Matrix GetWorldToScreenMatrix()
+    {
+        Matrix matrix = new();
+
+        // Translate to center + pan offset
+        matrix.Translate(Width / 2f + _panOffset.X, Height / 2f + _panOffset.Y);
+
+        // Scale (MSAGL using flipped y)
+        matrix.Scale(_renderScale, -_renderScale);
+
+        return matrix;
+    }
+
+    private void HandleMouseClick(Point screenPoint)
+    {
+        if (_graph == null) return;
+
+        using Matrix matrix = GetWorldToScreenMatrix();
+
+        // Invert screen matrix to get Screen -> World
+        // Scale clamped to 0.1f prevents Invert from throwing, so check is not needed.
+        matrix.Invert();
+
+        PointF[] points = { new(screenPoint.X, screenPoint.Y) };
+        matrix.TransformPoints(points);
+        float worldX = points[0].X;
+        float worldY = points[0].Y;
+
+        // Hit Test against MSAGL nodes
+        foreach (var node in _geomGraph.Nodes)
+        {
+            // MSAGL BoundingBox check
+            if (worldX >= node.BoundingBox.Left &&
+                worldX <= node.BoundingBox.Right &&
+                worldY >= node.BoundingBox.Bottom &&
+                worldY <= node.BoundingBox.Top)
+            {
+                if (node.UserData is IBlock block)
+                {
+                    _graph.Center = block;
+                    return;
+                }
+            }
+        }
     }
 
     private void ClampPanToBounds()
@@ -371,29 +427,28 @@ public class GraphRenderPanel : Panel
     {
         base.OnPaint(e);
 
-        if (_graph == null)
-            return;
-        if (_geomGraph.Nodes.Count == 0)
+        if (_graph == null || _geomGraph.Nodes.Count == 0)
             return;
 
         Graphics g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-        using Matrix transform = new();
-        transform.Translate(Width / 2f + _panOffset.X, Height / 2f + _panOffset.Y);
-        transform.Scale(_renderScale, -_renderScale);
-        g.Transform = transform;
-
-        foreach (var geomEdge in _geomGraph.Edges)
-            NodeRenderer.DrawEdge(g, geomEdge, _socketRadius);
-
-        foreach (var geomNode in _geomGraph.Nodes)
+        // Use the centralized matrix helper
+        using (Matrix transform = GetWorldToScreenMatrix())
         {
-            bool isSelected = geomNode.UserData == _graph.Center;
-            NodeRenderer.OptimizedStrategy.DrawNode(g, geomNode, isSelected, _selectedBlockOutlineColor, _socketRadius);
-        }
+            g.Transform = transform;
 
+            // ... Drawing logic (DrawEdge, DrawNode) remains the same ...
+            foreach (var geomEdge in _geomGraph.Edges)
+                NodeRenderer.DrawEdge(g, geomEdge, _socketRadius);
+
+            foreach (var geomNode in _geomGraph.Nodes)
+            {
+                bool selected = geomNode.UserData is IBlock block && block == _graph.Center;
+                NodeRenderer.OptimizedStrategy.DrawNode(g, geomNode, selected, _selectedBlockOutlineColor, _socketRadius);
+            }
+        }
         g.ResetTransform();
     }
     #endregion
