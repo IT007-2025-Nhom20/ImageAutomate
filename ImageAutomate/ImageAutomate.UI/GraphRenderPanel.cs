@@ -485,12 +485,12 @@ public class GraphRenderPanel : Panel
 
             // ... Drawing logic (DrawEdge, DrawNode) remains the same ...
             foreach (var geomEdge in _geomGraph.Edges)
-                NodeRenderer.DrawEdge(g, geomEdge, _socketRadius);
+                NodeRenderer.Instance.DrawEdge(g, geomEdge, _socketRadius);
 
             foreach (var geomNode in _geomGraph.Nodes)
             {
                 bool selected = geomNode.UserData is IBlock block && block == _graph.Center;
-                NodeRenderer.OptimizedStrategy.DrawNode(g, geomNode, selected, _selectedBlockOutlineColor, _socketRadius);
+                NodeRenderer.Instance.DrawNodeOptimized(g, geomNode, selected, _selectedBlockOutlineColor, _socketRadius);
             }
         }
         g.ResetTransform();
