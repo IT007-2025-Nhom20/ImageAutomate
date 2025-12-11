@@ -167,10 +167,11 @@ public class GraphRenderPanel : Panel
         if (!_graph.Blocks.Contains(destBlock))
             _graph.AddBlock(destBlock);
         // TODO: Implement proper exception type for mismatching block and socket.
+        // Note: Temporary solution using ArgumentException.
         if (!sourceBlock.Outputs.Contains(sourceSocket))
-            throw new Exception($"Invalid socket {sourceSocket.Id} for block {sourceBlock.Name}");
+            throw new ArgumentException($"Invalid socket {sourceSocket.Id} for block {sourceBlock.Name}", nameof(sourceSocket));
         if (!destBlock.Inputs.Contains(destSocket))
-            throw new Exception($"Invalid socket {sourceSocket.Id} for block {sourceBlock.Name}");
+            throw new ArgumentException($"Invalid socket {destSocket.Id} for block {destBlock.Name}", nameof(destSocket));
         _graph.Connect(sourceBlock, sourceSocket, destBlock, destSocket);
 
         Invalidate();
