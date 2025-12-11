@@ -9,6 +9,31 @@ namespace ImageAutomate.UI;
 
 public static class NodeRenderer
 {
+    // Cached GDI+ resources to avoid allocation in the render loop.
+    private static readonly Color EdgeColor = Color.FromArgb(150, 150, 150);
+    private static readonly Pen EdgePen = new(EdgeColor, 2);
+
+    private static readonly SolidBrush BgBrush = new(Color.FromArgb(60, 60, 60));
+    private static readonly SolidBrush HeaderBrush = new(Color.FromArgb(80, 80, 80));
+    private static readonly SolidBrush TextBrush = new(Color.White);
+
+    private static readonly Pen BorderPenNormal = new(Color.FromArgb(100, 100, 100), 2);
+    private static readonly Pen BorderPenSelected = new(Color.Red, 3); // Will be updated if color changes, but here we assume static for trivial opt.
+
+    // Note: If SelectedBlockOutlineColor is dynamic per panel, we can't cache the selected pen globally easily without a map or recreating it.
+    // However, for "trivial optimization", caching the common brushes/pens is a big win.
+    // We will keep creating the selected pen if color varies, or just cache a default one.
+    // The previous code passed `selectionColor` as an argument.
+    // We will cache common colors. For dynamic ones, we still create them or use a Dictionary cache.
+    // To keep it simple and trivial, we'll cache the static ones.
+
+    private static readonly Font LabelFont = new("Segoe UI", 10, FontStyle.Bold);
+    private static readonly Font DetailFont = new("Segoe UI", 8);
+
+    private static readonly SolidBrush SocketInputBrush = new(Color.FromArgb(100, 200, 100));
+    private static readonly SolidBrush SocketOutputBrush = new(Color.FromArgb(200, 100, 100));
+    private static readonly Pen SocketBorderPen = new(Color.White, 1.5f);
+
     public static void DrawEdge(Graphics g, GeomEdge geomEdge, double socketRadius)
     {
         var sourceNode = geomEdge.Source;
@@ -38,12 +63,12 @@ public static class NodeRenderer
         PointF cp1 = new(start.X + controlPointOffset, start.Y);
         PointF cp2 = new(end.X - controlPointOffset, end.Y);
 
-        using var edgePen = new Pen(Color.FromArgb(150, 150, 150), 2);
-        g.DrawBezier(edgePen, start, cp1, cp2, end);
+        g.DrawBezier(EdgePen, start, cp1, cp2, end);
     }
 
     public static class DirectStrategy
     {
+        // DirectStrategy is less optimized by definition, but we can still use the cached resources where appropriate.
         public static void DrawNode(Graphics g, GeomNode geomNode, bool isSelected, Color selectionColor, double socketRadius)
         {
             if (geomNode.UserData is not IBlock block) return;
@@ -59,26 +84,18 @@ public static class NodeRenderer
             float radius = 8;
             var state = g.Save();
 
-            using (var bgBrush = new SolidBrush(Color.FromArgb(60, 60, 60)))
-            using (var borderPen = new Pen(
-                isSelected ? selectionColor : Color.FromArgb(100, 100, 100),
-                isSelected ? 3 : 2))
+            using var borderPen = new Pen(isSelected ? selectionColor : Color.FromArgb(100, 100, 100), isSelected ? 3 : 2);
             using (var path = CreateRoundedRectPath(rect, radius))
             {
-                g.FillPath(bgBrush, path);
+                g.FillPath(BgBrush, path);
                 g.DrawPath(borderPen, path);
             }
 
-            // Header at the Top (Visually) -> MSAGL Top (rect.Bottom)
-            // MSAGL Y-Up: Rect goes from Y to Y+H.
-            // Visual Top is Y+H.
-            // So HeaderRect should be from Y+H-25 to Y+H.
             RectangleF headerRect = new(rect.X, rect.Bottom - 25, rect.Width, 25);
 
-            using (var headerBrush = new SolidBrush(Color.FromArgb(80, 80, 80)))
             using (var headerPath = CreateRoundedRectPath(headerRect, radius, topOnly: true))
             {
-                g.FillPath(headerBrush, headerPath);
+                g.FillPath(HeaderBrush, headerPath);
             }
 
             g.Restore(state);
@@ -90,32 +107,15 @@ public static class NodeRenderer
                 g.MultiplyTransform(flipMatrix);
             }
 
-            using (var textBrush = new SolidBrush(Color.White))
-            using (var labelFont = new Font("Segoe UI", 10, FontStyle.Bold))
-            using (var detailFont = new Font("Segoe UI", 8))
+            // Text Coordinates in Flipped Space
+            g.DrawString(block.Name, LabelFont, TextBrush, new PointF(rect.X + 10, rect.Y + 5));
+
+            float yOffset = rect.Y + 35;
+            string[] lines = block.Content.Split('\n');
+            foreach (var line in lines)
             {
-                // Text Coordinates in Flipped Space:
-                // Visual Top (Screen -Y) maps to MSAGL Top (Y_max).
-                // Local Flipped Transform: Y -> -Y + 2C.
-                // Input Y_max -> -Y_max + 2C = Y_min.
-                // So drawing at rect.Y (Y_min) puts text at Visual Top.
-
-                // Label (Header Text)
-                g.DrawString(block.Name, labelFont, textBrush,
-                    new PointF(rect.X + 10, rect.Y + 5));
-
-                // Content Text (Below Header)
-                // Header is 25px.
-                // Start content at 35px down from Visual Top.
-                float yOffset = rect.Y + 35;
-
-                string[] lines = block.Content.Split('\n');
-                foreach (var line in lines)
-                {
-                    g.DrawString(line, detailFont, textBrush,
-                        new PointF(rect.X + 10, yOffset));
-                    yOffset += 15;
-                }
+                g.DrawString(line, DetailFont, TextBrush, new PointF(rect.X + 10, yOffset));
+                yOffset += 15;
             }
 
             g.Restore(state);
@@ -152,15 +152,20 @@ public static class NodeRenderer
             using var headerPath = CreateRoundedRectPath(headerRect, radius, topOnly: true);
 
             // Drawing - Shape Layer
-            using (var bgBrush = new SolidBrush(Color.FromArgb(60, 60, 60)))
-            using (var headerBrush = new SolidBrush(Color.FromArgb(80, 80, 80)))
-            using (var borderPen = new Pen(
-                isSelected ? selectionColor : Color.FromArgb(100, 100, 100),
-                isSelected ? 3 : 2))
+            // Use cached brushes
+            g.FillPath(BgBrush, mainPath);
+            g.FillPath(HeaderBrush, headerPath);
+
+            // For border, if selected color is standard Red, use cached, otherwise create new.
+            // But the panel passes `_selectedBlockOutlineColor`.
+            if (isSelected)
             {
-                g.FillPath(bgBrush, mainPath);
-                g.FillPath(headerBrush, headerPath);
-                g.DrawPath(borderPen, mainPath);
+                using var selPen = new Pen(selectionColor, 3);
+                g.DrawPath(selPen, mainPath);
+            }
+            else
+            {
+                g.DrawPath(BorderPenNormal, mainPath);
             }
 
             // Drawing - Text Layer
@@ -170,24 +175,17 @@ public static class NodeRenderer
                 g.MultiplyTransform(flipMatrix);
             }
 
-            using (var textBrush = new SolidBrush(Color.White))
-            using (var labelFont = new Font("Segoe UI", 10, FontStyle.Bold))
-            using (var detailFont = new Font("Segoe UI", 8))
-            {
-                // Label in Header
-                g.DrawString(block.Name, labelFont, textBrush,
-                    new PointF(rect.X + 10, rect.Y + 5));
+            // Use cached fonts and brushes
+            g.DrawString(block.Name, LabelFont, TextBrush, new PointF(rect.X + 10, rect.Y + 5));
 
-                // Content below Header
-                float yOffset = rect.Y + 35;
-                string[] lines = block.Content.Split('\n');
-                foreach (var line in lines)
-                {
-                    g.DrawString(line, detailFont, textBrush,
-                        new PointF(rect.X + 10, yOffset));
-                    yOffset += 15;
-                }
+            float yOffset = rect.Y + 35;
+            string[] lines = block.Content.Split('\n');
+            foreach (var line in lines)
+            {
+                g.DrawString(line, DetailFont, TextBrush, new PointF(rect.X + 10, yOffset));
+                yOffset += 15;
             }
+
             g.Restore(state);
 
             DrawSocket(g, new PointF(rect.Left, rect.Top + rect.Height / 2), isInput: true, socketRadius);
@@ -209,31 +207,9 @@ public static class NodeRenderer
 
         path.StartFigure();
 
-        // Top Right Corner
-        path.AddArc(right - diameter, top - diameter, diameter, diameter, 0, 90);
-        // Top Left Corner
-        path.AddArc(left, top - diameter, diameter, diameter, 90, 90);
-
-        // Bottom Left Corner
-        path.AddArc(left, bottom, diameter, diameter, 180, 90);
-        // Bottom Right Corner
-        path.AddArc(right - diameter, bottom, diameter, diameter, 270, 90);
-
-        path.CloseFigure();
-
         if (topOnly)
         {
-            // Header logic:
-            // The input `rect` for header is defined as the Header Strip itself (Height 25).
-            // So `rect.Y` (bottom of header) is MSAGL Top - 25.
-            // `rect.Bottom` (top of header) is MSAGL Top.
-
-            // We want the Top corners to be rounded (matching the node).
-            // The Bottom corners to be square (connecting to the body).
-
-            path.Reset();
-
-            // Top Right (Rounded)
+             // Top Right (Rounded)
             path.AddArc(right - diameter, top - diameter, diameter, diameter, 0, 90);
             // Top Left (Rounded)
             path.AddArc(left, top - diameter, diameter, diameter, 90, 90);
@@ -244,10 +220,20 @@ public static class NodeRenderer
             path.AddLine(left, bottom, right, bottom);
             // Line up
             path.AddLine(right, bottom, right, top - diameter + radius);
-
-            path.CloseFigure();
+        }
+        else
+        {
+            // Top Right Corner
+            path.AddArc(right - diameter, top - diameter, diameter, diameter, 0, 90);
+            // Top Left Corner
+            path.AddArc(left, top - diameter, diameter, diameter, 90, 90);
+            // Bottom Left Corner
+            path.AddArc(left, bottom, diameter, diameter, 180, 90);
+            // Bottom Right Corner
+            path.AddArc(right - diameter, bottom, diameter, diameter, 270, 90);
         }
 
+        path.CloseFigure();
         return path;
     }
 
@@ -261,13 +247,9 @@ public static class NodeRenderer
             socketRadius * 2
         );
 
-        var socketColor = isInput
-            ? Color.FromArgb(100, 200, 100)
-            : Color.FromArgb(200, 100, 100);
+        var socketBrush = isInput ? SocketInputBrush : SocketOutputBrush;
 
-        using var socketBrush = new SolidBrush(socketColor);
-        using var socketBorder = new Pen(Color.White, 1.5f);
         g.FillEllipse(socketBrush, socketRect);
-        g.DrawEllipse(socketBorder, socketRect);
+        g.DrawEllipse(SocketBorderPen, socketRect);
     }
 }
