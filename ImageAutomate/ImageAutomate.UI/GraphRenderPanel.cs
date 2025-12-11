@@ -220,7 +220,10 @@ public class GraphRenderPanel : Panel
             return;
         var bounds = _geomGraph.BoundingBox;
 
-        var node = _geomGraph.Nodes.First(n => n.UserData == _graph.Center);
+        var node = _geomGraph.Nodes.FirstOrDefault(n => n.UserData == _graph.Center);
+        if (node == null)
+            return;
+
         float wx = (float)node.Center.X;
         float wy = (float)node.Center.Y;
 
