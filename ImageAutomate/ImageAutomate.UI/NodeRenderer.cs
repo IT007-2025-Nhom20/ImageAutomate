@@ -183,7 +183,7 @@ public static class NodeRenderer
             }
 
             // Use cached fonts and brushes
-            g.DrawString(block.Name, LabelFont, TextBrush, new PointF(rect.X + 10, rect.Y + 5));
+            g.DrawString(block.Title, LabelFont, TextBrush, new PointF(rect.X + 10, rect.Y + 5));
 
             float yOffset = rect.Y + 35;
             string[] lines = block.Content.Split('\n');
