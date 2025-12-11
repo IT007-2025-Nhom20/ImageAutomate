@@ -153,7 +153,7 @@ public class GraphRenderPanel : Panel
     /// <remarks>If either block is not already part of the graph, it will be added automatically before the
     /// connection is made.</remarks>
     /// <param name="sourceBlock">The block that provides the output socket to be connected. Cannot be null.</param>
-    /// <param name="sourceSocket">The output socket on the source block to connect. Must an Output of sourceBlock.</param>
+    /// <param name="sourceSocket">The output socket on the source block to connect. Must be an Output of sourceBlock.</param>
     /// <param name="destBlock">The block that receives the input socket connection. Cannot be null.</param>
     /// <param name="destSocket">The input socket on the destination block to connect. Must an Input of destBlock.</param>
     /// <exception cref="Exception">Thrown if the specified source socket is not present in the source block's Outputs collection, or if the
