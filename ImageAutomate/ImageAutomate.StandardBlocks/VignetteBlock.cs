@@ -74,7 +74,7 @@ public class VignetteBlock
 
     public string Content
     {
-        get => _content;
+        get => $"Color: {Color}\nStrength: {Strength}\nRe-encode: {AlwaysEncode}";
         set
         {
             if (!string.Equals(_content, value, StringComparison.Ordinal))

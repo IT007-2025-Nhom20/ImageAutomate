@@ -83,7 +83,8 @@ public class SaveBlock : IBlock
 
     public string Content
     {
-        get => _content;
+        get => $"Output path: {OutputPath}\nOverwrite: {Overwrite}\nCreate directory: {CreateDirectory}\nTarget format: {EncoderFormat}";
+        
         set
         {
             if (!string.Equals(_content, value, StringComparison.Ordinal))

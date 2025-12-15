@@ -67,7 +67,8 @@ public class SharpenBlock
 
     public string Content
     {
-        get => _content;
+        get => $"Amount: {Amount}\nRe-encode: {AlwaysEncode}";
+        
         set
         {
             if (!string.Equals(_content, value, StringComparison.Ordinal))

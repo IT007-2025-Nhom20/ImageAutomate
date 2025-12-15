@@ -68,7 +68,8 @@ public class LoadBlock : IBlock
     }
     public string Content 
     { 
-        get => _content;
+        get => $"Path: {SourcePath}\nRe-encode: {AlwaysEncode}";
+        
         set
         {
             if (_content != value)
@@ -137,6 +138,21 @@ public class LoadBlock : IBlock
             {
                 _autoOrient = value;
                 OnPropertyChanged(nameof(AutoOrient));
+            }
+        }
+    }
+
+    [Category("Configuration")]
+    [Description("Force re-encoding even when format matches")]
+    public bool AlwaysEncode
+    {
+        get => _alwaysEncode;
+        set
+        {
+            if (_alwaysEncode != value)
+            {
+                _alwaysEncode = value;
+                OnPropertyChanged(nameof(AlwaysEncode));
             }
         }
     }

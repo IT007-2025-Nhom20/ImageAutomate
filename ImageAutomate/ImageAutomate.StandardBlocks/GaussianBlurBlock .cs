@@ -8,6 +8,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace ImageAutomate.StandardBlocks;
@@ -65,7 +66,8 @@ public class GaussianBlurBlock : IBlock
 
     public string Content
     {
-        get => _content;
+        get => $"Sigma: {Sigma}\nRadius: {Radius}\nRe-encode: {AlwaysEncode}";
+        
         set
         {
             if (!string.Equals(_content, value, StringComparison.Ordinal))
@@ -76,18 +78,7 @@ public class GaussianBlurBlock : IBlock
         }
     }
 
-    public bool AlwaysEncode
-    {
-        get => _alwaysEncode;
-        set
-        {
-            if (_alwaysEncode != value)
-            {
-                _alwaysEncode = value;
-                OnPropertyChanged(nameof(AlwaysEncode));
-            }    
-        }
-    }
+    
     #endregion
 
     #region Layout
@@ -168,6 +159,20 @@ public class GaussianBlurBlock : IBlock
         }
     }
 
+    [Category("Configuration")]
+    [Description("Force re - encoding even when format matches")]
+    public bool AlwaysEncode
+    {
+        get => _alwaysEncode;
+        set
+        {
+            if (_alwaysEncode != value)
+            {
+                _alwaysEncode = value;
+                OnPropertyChanged(nameof(AlwaysEncode));
+            }
+        }
+    }
     #endregion
 
     #region INotifyPropertyChanged

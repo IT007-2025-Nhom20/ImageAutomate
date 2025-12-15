@@ -66,7 +66,8 @@ public class SaturationBlock
 
     public string Content
     {
-        get => _content;
+        get =>$"Sarutation: {Saturation}\nRe-encode: {AlwaysEncode}";
+        
         set
         {
             if (!string.Equals(_content, value, StringComparison.Ordinal))

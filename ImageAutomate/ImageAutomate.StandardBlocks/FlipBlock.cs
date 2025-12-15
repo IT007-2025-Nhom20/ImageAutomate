@@ -67,7 +67,8 @@ public class FlipBlock : IBlock
 
     public string Content
     {
-        get => _content;
+        get => $"Flip direction: {FlipMode}\n Re-encode: {AlwaysEncode}";
+        
         set
         {
             if (!string.Equals(_content, value, StringComparison.Ordinal))

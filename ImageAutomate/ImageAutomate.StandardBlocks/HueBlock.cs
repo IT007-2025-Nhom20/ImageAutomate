@@ -50,7 +50,8 @@ public class HueBlock
 
     public string Title
     {
-        get => _title;
+        get => $"Hue shift: {HueShift}\nRe-encode: {AlwaysEncode}";
+        
         set
         {
             if (!string.Equals(_title, value, StringComparison.Ordinal))

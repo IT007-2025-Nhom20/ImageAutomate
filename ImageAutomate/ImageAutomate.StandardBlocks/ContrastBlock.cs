@@ -64,7 +64,7 @@ internal class ContrastBlock : IBlock
 
     public string Content
     {
-        get => _content;
+        get => $"Contrast: {Contrast}\nRe-encode: {AlwaysEncode}";
         set
         {
             if (!string.Equals(_content, value, StringComparison.Ordinal))

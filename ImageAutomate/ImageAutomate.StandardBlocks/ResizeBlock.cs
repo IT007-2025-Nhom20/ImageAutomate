@@ -91,7 +91,28 @@ public class ResizeBlock : IBlock
 
     public string Content
     {
-        get => _content;
+        get
+        {
+            if (ResizeMode is ResizeModeOption.Fixed)
+                return $"Resize mode: {ResizeMode}\n" +
+                       $"Width: {TargetWidth}\n" +
+                       $"Height: {TargetHeight}\n" +
+                       $"Preserve aspect ratio: {PreserveAspectRatio}\n" +
+                       $"Resampler: {Resampler}\n" +
+                       $"Re-encode: {AlwaysEncoder}";
+            else if(ResizeMode is ResizeModeOption.Pad)
+                return $"Resize mode: {ResizeMode}\n" +
+                       $"Width: {TargetWidth}\n" +
+                       $"Height: {TargetHeight}\n" +
+                       $"Resampler: {Resampler}\n" +
+                       $"Back ground color: {BackgroundColor}\n" +
+                       $"Re-encode: {AlwaysEncoder}";
+            return $"Resize mode: {ResizeMode}\n" +
+                   $"Width: {TargetWidth}\n" +
+                   $"Height: {TargetHeight}\n" +
+                   $"Resampler: {Resampler}\n" +
+                   $"Re-encode: {AlwaysEncoder}";
+        }
         set
         {
             if (!string.Equals(_content, value, StringComparison.Ordinal))

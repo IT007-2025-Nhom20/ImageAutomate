@@ -88,7 +88,20 @@ public class CropBlock : IBlock
 
     public string Content
     {
-        get => _content;
+        get 
+        {
+            if (CropMode is CropModeOption.Rectangle)
+                return $"Crop Mode: {CropMode}\n" +
+                       $"Left: {X} Top: {Y}\n" +
+                       $"Widht: {CropWidth} Height: {CropHeight}\n" +
+                       $"Anchor Position: {AnchorPosition}\n" +
+                       $"Re-Encode: {AlwaysEncoder}";
+
+            return $"Crop Mode: {CropMode}\n" +
+                   $"Widht: {CropWidth} Height: {CropHeight}\n" +
+                   $"Anchor Position: {AnchorPosition}\n" +
+                   $"Re-Encode: {AlwaysEncoder}";
+        }
         set
         {
             if (!string.Equals(_content, value, StringComparison.Ordinal))
