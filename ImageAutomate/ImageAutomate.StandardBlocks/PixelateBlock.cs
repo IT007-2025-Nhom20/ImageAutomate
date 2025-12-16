@@ -167,7 +167,7 @@ public class PixelateBlock
 
     #region Execute (string keyed)
 
-    public IReadOnlyDictionary<string, IReadOnlyList<IBasicWorkItem>> Execute(
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         if (inputs is null) throw new ArgumentNullException(nameof(inputs));
@@ -186,7 +186,7 @@ public class PixelateBlock
 
         var readOnly = new ReadOnlyCollection<IBasicWorkItem>(resultList);
 
-        return new Dictionary<string, IReadOnlyList<IBasicWorkItem>>
+        return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>
             {
                 { _outputs[0].Id, readOnly }
             };

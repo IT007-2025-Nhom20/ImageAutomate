@@ -395,90 +395,12 @@ public class ConvertBlock : IBlock
     }
 
 
-    public IReadOnlyDictionary<string, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
-        if (inputs is null) throw new ArgumentNullException(nameof(inputs));
-
-        inputs.TryGetValue(_inputs[0], out var inItems);
-        inItems ??= Array.Empty<IBasicWorkItem>();
-
-        var resultList = new List<IBasicWorkItem>(inItems.Count);
-        foreach (var item in inItems)
-        {
-            var converted = ConvertWorkItem(item);
-            if (converted != null)
-                resultList.Add(converted);
-        }
-
-        var readOnlyResult = new ReadOnlyCollection<IBasicWorkItem>(resultList);
-        var dict = new Dictionary<string, IReadOnlyList<IBasicWorkItem>>
-        {
-            { _outputs[0].Id, readOnlyResult }
-        };
-
-        return dict;
+        throw new NotImplementedException();
     }
-    private IBasicWorkItem? ConvertWorkItem(IBasicWorkItem item)
-    {
-        if (item is null)
-            throw new ArgumentNullException(nameof(item));
 
-        // 1. Lấy ảnh từ metadata
-        if (!item.Metadata.TryGetValue("ImageData", out var imageDataObj) ||
-            imageDataObj is not byte[] imageBytes ||
-            imageBytes.Length == 0)
-        {
-            // Không có dữ liệu ảnh → trả nguyên item, cho phép pipeline pass-through
-            return item;
-        }
-
-        // 2. Lấy format hiện tại (nếu có) để quyết định có cần re-encode hay không
-        ImageFormat? currentFormat = null;
-        if (item.Metadata.TryGetValue("Format", out var fmtObj) && fmtObj is ImageFormat fmtEnum)
-        {
-            currentFormat = fmtEnum;
-        }
-
-        // Nếu không bắt buộc re-encode và format đã trùng target => bỏ qua, trả item gốc
-        if (!AlwaysEncode && currentFormat.HasValue && currentFormat.Value == TargetFormat)
-        {
-            return item;
-        }
-
-        try
-        {
-            // 3. Load ảnh bằng ImageSharp 3.x
-            using var image = Image.Load<Rgba32>(imageBytes);
-
-            // 4. Chọn encoder theo TargetFormat + options
-            IImageEncoder encoder = CreateEncoderForTargetFormat();
-
-            // 5. Encode lại sang format mới
-            using var ms = new MemoryStream();
-            image.Save(ms, encoder);
-            var convertedBytes = ms.ToArray();
-
-            // 6. Clone metadata cũ và cập nhật
-            var newMetadata = new Dictionary<string, object>(item.Metadata)
-            {
-                ["ImageData"] = convertedBytes,
-                ["Format"] = TargetFormat,
-                ["ConvertedAtUtc"] = DateTime.UtcNow
-            };
-
-            // Giữ lại id cũ hay tạo id mới tuỳ design – ở đây tạo WorkItem mới
-            return new BasicWorkItem(newMetadata);
-        }
-        catch (Exception ex) when (ex is UnknownImageFormatException
-                                   || ex is InvalidImageContentException
-                                   || ex is NotSupportedException
-                                   || ex is IOException)
-        {
-            
-            throw new InvalidOperationException(
-                $"ConvertBlock: Failed to convert work item {item.Id} to format {TargetFormat}: {ex.Message}", ex);
-        }
-    }
+    #endregion
 
     private IImageEncoder CreateEncoderForTargetFormat()
     {
