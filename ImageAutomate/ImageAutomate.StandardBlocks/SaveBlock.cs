@@ -309,7 +309,7 @@ public class SaveBlock : IBlock
             SaveWorkItem(item);
         }
 
-        return new Dictionary<string, IReadOnlyList<IBasicWorkItem>>();
+        return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>();
     }
 
     #endregion

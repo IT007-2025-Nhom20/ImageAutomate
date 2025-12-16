@@ -154,7 +154,7 @@ public class LoadBlock : IBlock
             };
     }
 
-    public IReadOnlyDictionary<string, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         var items = LoadWorkItems();
 
@@ -162,9 +162,9 @@ public class LoadBlock : IBlock
    
         var readOnly = new ReadOnlyCollection<IBasicWorkItem>(list);
 
-        return new Dictionary<string, IReadOnlyList<IBasicWorkItem>>
+        return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>
             {
-                { _outputSocket.Id, readOnly }
+                { _outputSocket, readOnly }
             };
     }
 

@@ -64,7 +64,7 @@ public interface IBlock: INotifyPropertyChanged, IDisposable
     /// Executes the block operation on the given inputs (by socket ID).
     /// </summary>
     /// <param name="inputs">Map of socket IDs to input work items.</param>
-    /// <returns>Map of socket IDs to output work items.</returns>
-    public IReadOnlyDictionary<string, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs);
+    /// <returns>Map of socket to output work items.</returns>
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs);
     #endregion
 }
