@@ -2,14 +2,8 @@
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace ImageAutomate.StandardBlocks;
 public enum CropModeOption
 {
@@ -72,14 +66,6 @@ public class CropBlock : IBlock
     public string Title
     {
         get => _title;
-        set
-        {
-            if (!string.Equals(_title, value, StringComparison.Ordinal))
-            {
-                _title = value;
-                OnPropertyChanged(nameof(Title));
-            }
-        }
     }
 
     public string Content
@@ -97,14 +83,6 @@ public class CropBlock : IBlock
                    $"Widht: {CropWidth} Height: {CropHeight}\n" +
                    $"Anchor Position: {AnchorPosition}\n" +
                    $"Re-Encode: {AlwaysEncoder}";
-        }
-        set
-        {
-            if (!string.Equals(_content, value, StringComparison.Ordinal))
-            {
-                _content = value;
-                OnPropertyChanged(nameof(Content));
-            }
         }
     }
 
