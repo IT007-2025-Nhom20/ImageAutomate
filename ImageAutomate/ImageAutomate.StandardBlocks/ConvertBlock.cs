@@ -400,7 +400,7 @@ public class ConvertBlock : IBlock
     }
 
 
-    public IReadOnlyDictionary<string, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         if (inputs is null) throw new ArgumentNullException(nameof(inputs));
 
@@ -416,9 +416,9 @@ public class ConvertBlock : IBlock
         }
 
         var readOnlyResult = new ReadOnlyCollection<IBasicWorkItem>(resultList);
-        var dict = new Dictionary<string, IReadOnlyList<IBasicWorkItem>>
+        var dict = new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>
         {
-            { _outputSocket.Id, readOnlyResult }
+            { _outputSocket, readOnlyResult }
         };
 
         return dict;
