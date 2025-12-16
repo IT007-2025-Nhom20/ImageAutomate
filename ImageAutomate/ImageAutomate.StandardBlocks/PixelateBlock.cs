@@ -53,28 +53,11 @@ public class PixelateBlock
     public string Title
     {
         get => _title;
-        set
-        {
-            if (!string.Equals(_title, value, StringComparison.Ordinal))
-            {
-                _title = value;
-                OnPropertyChanged(nameof(Title));
-            }
-        }
     }
 
     public string Content
     {
         get => $"Size: {Size}\nRe-encode: {AlwaysEncode}";
-        
-        set
-        {
-            if (!string.Equals(_content, value, StringComparison.Ordinal))
-            {
-                _content = value;
-                OnPropertyChanged(nameof(Content));
-            }
-        }
     }
 
     #endregion

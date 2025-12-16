@@ -62,27 +62,11 @@ public class VignetteBlock
     public string Title
     {
         get => _title;
-        set
-        {
-            if (!string.Equals(_title, value, StringComparison.Ordinal))
-            {
-                _title = value;
-                OnPropertyChanged(nameof(Title));
-            }
-        }
     }
 
     public string Content
     {
         get => $"Color: {Color}\nStrength: {Strength}\nRe-encode: {AlwaysEncode}";
-        set
-        {
-            if (!string.Equals(_content, value, StringComparison.Ordinal))
-            {
-                _content = value;
-                OnPropertyChanged(nameof(Content));
-            }
-        }
     }
 
     [Category("Layout")]

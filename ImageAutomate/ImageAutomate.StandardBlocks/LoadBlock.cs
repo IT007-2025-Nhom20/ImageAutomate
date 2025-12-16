@@ -57,27 +57,10 @@ public class LoadBlock : IBlock
     public string Title 
     { 
         get => _title;
-        set
-        {
-            if (_title != value)
-            {
-                _title = value;
-                OnPropertyChanged(nameof(Title));
-            }
-        }
     }
     public string Content 
     { 
         get => $"Path: {SourcePath}\nRe-encode: {AlwaysEncode}";
-        
-        set
-        {
-            if (_content != value)
-            {
-                _content = value;
-                OnPropertyChanged(nameof(Content));
-            }
-        }
     }
 
     [Category("Layout")]

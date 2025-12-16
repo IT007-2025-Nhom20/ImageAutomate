@@ -76,14 +76,6 @@ public class CropBlock : IBlock
     public string Title
     {
         get => _title;
-        set
-        {
-            if (!string.Equals(_title, value, StringComparison.Ordinal))
-            {
-                _title = value;
-                OnPropertyChanged(nameof(Title));
-            }
-        }
     }
 
     public string Content
@@ -101,14 +93,6 @@ public class CropBlock : IBlock
                    $"Widht: {CropWidth} Height: {CropHeight}\n" +
                    $"Anchor Position: {AnchorPosition}\n" +
                    $"Re-Encode: {AlwaysEncoder}";
-        }
-        set
-        {
-            if (!string.Equals(_content, value, StringComparison.Ordinal))
-            {
-                _content = value;
-                OnPropertyChanged(nameof(Content));
-            }
         }
     }
 
