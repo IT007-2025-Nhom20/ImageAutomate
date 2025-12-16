@@ -159,15 +159,11 @@ public class LoadBlock : IBlock
         if (!Directory.Exists(SourcePath))
             throw new DirectoryNotFoundException("LoadBlock: directory not found");
 
-        var type = "*.jpg; *.png";
-        var patterns = type.Split(';');
-
-        var files = new List<string>();
-
-        foreach (var pattern in patterns)
-            files.AddRange(Directory.GetFiles(SourcePath, pattern));
-
-        files.Sort(StringComparer.OrdinalIgnoreCase);
+        var files = Directory.GetFiles(SourcePath)
+            .Where(IsValidImageFile)
+            //* Is ordering necessary? 
+            // .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         foreach (var file in files)
         {
@@ -176,6 +172,22 @@ public class LoadBlock : IBlock
             wi.Metadata["FileName"] = Path.GetFileName(file);
             wi.Metadata["FullPath"] = file;
             yield return wi!;
+        }
+    }
+
+    private bool IsValidImageFile(string path)
+    {
+        try
+        {
+            var info = Image.Identify(path);
+            return info != null;
+        }
+        catch (Exception ex) when (ex is NotSupportedException
+                                   || ex is InvalidImageContentException
+                                   || ex is UnknownImageFormatException
+                                   || ex is ArgumentNullException)
+        {
+            return false;
         }
     }
 

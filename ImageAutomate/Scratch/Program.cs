@@ -1,6 +1,5 @@
 using ImageAutomate.Core;
 using ImageAutomate.StandardBlocks;
-using System.Runtime.CompilerServices;
 
 namespace Scratch;
 public class Program
@@ -8,7 +7,7 @@ public class Program
     public static void Main()
     {
         LoadBlock loadBlock = new LoadBlock();
-        loadBlock.SourcePath = "C:\\Users\\Admin\\Pictures\\Test";
+        loadBlock.SourcePath = "C:\\Users\\phanm\\OneDrive\\Pictures";
         
         foreach (var item in loadBlock.Execute(new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>()))
         {
@@ -17,7 +16,8 @@ public class Program
                 Console.WriteLine(item.Key.Id);
                 foreach (var data in item.Value)
                 {
-                    Console.WriteLine($"{data.Metadata}\n");
+                    if (data is WorkItem workItem)
+                        Console.WriteLine($"{workItem.Metadata["FileName"]}\n");
                 }    
             }
         }    
