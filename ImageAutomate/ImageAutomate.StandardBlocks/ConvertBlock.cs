@@ -57,7 +57,12 @@ public enum TiffCompression
     Rle,
     Zip
 }
-
+public enum PbmColorType
+{
+    BlackAndWhite,
+    GrayScale,
+    RGB
+}
 public class ConvertBlock : IBlock
 {
     #region Fields
@@ -76,6 +81,7 @@ public class ConvertBlock : IBlock
     private TgaEncodingOptions _tgaOptions = new TgaEncodingOptions();
     private WebPEncodingOptions _webpOptions = new WebPEncodingOptions();
     private QoiEncodingOptions _qoiOptions = new QoiEncodingOptions();
+    private PbmEncodingOptions _pbmOptions = new PbmEncodingOptions();
 
     private int _width = 200;
     private int _height = 100;
@@ -92,6 +98,7 @@ public class ConvertBlock : IBlock
         _tgaOptions.PropertyChanged += Options_OnPropertyChanged;
         _webpOptions.PropertyChanged += Options_OnPropertyChanged;
         _qoiOptions.PropertyChanged += Options_OnPropertyChanged;
+        _pbmOptions.PropertyChanged += Options_OnPropertyChanged;
     }
 
     #region Basic Properties
@@ -185,6 +192,7 @@ public class ConvertBlock : IBlock
                 OnPropertyChanged(nameof(TgaOptions));
                 OnPropertyChanged(nameof(WebPOptions));
                 OnPropertyChanged(nameof(QoiOptions));
+                OnPropertyChanged(nameof(PbmOptions));
             }
         }
     }
@@ -344,7 +352,22 @@ public class ConvertBlock : IBlock
             OnPropertyChanged(nameof(QoiOptions));
         }
     }
-
+    [Category("Encoding Options")]
+    [Description("PBM encoding parameter")]
+    [TypeConverter(typeof(ExpandableObjectConverter))]
+    public PbmEncodingOptions PbmOptions
+    {
+        get => _pbmOptions;
+        set
+        {
+            if (_pbmOptions != null)
+                _pbmOptions.PropertyChanged -= Options_OnPropertyChanged;
+            _pbmOptions = value;
+            if (_pbmOptions != null)
+                _pbmOptions.PropertyChanged += Options_OnPropertyChanged;
+            OnPropertyChanged(nameof(PbmOptions));
+        }
+    }
     #endregion
 
     #region Notify Property Changed
@@ -372,6 +395,8 @@ public class ConvertBlock : IBlock
             OnPropertyChanged(nameof(WebPOptions));
         else if (sender is QoiEncodingOptions)
             OnPropertyChanged(nameof(QoiOptions));
+        else if (sender is PbmEncodingOptions)
+            OnPropertyChanged(nameof(PbmOptions));
     }
 
     #endregion
@@ -410,8 +435,8 @@ public class ConvertBlock : IBlock
                 ImageFormat.Tga => (object)TgaOptions,
                 ImageFormat.WebP => (object)WebPOptions,
                 ImageFormat.Qoi => (object)QoiOptions,
+                ImageFormat.Pbm => (object)PbmOptions,
                 ImageFormat.Unknown => throw new NotImplementedException(),
-                ImageFormat.Pbm => throw new NotImplementedException(),
                 _ => null
             } ?? null!);
             outputItems.Add(
@@ -695,6 +720,25 @@ public class QoiEncodingOptions : INotifyPropertyChanged
     }
 
     public override string ToString() => _includeAlpha ? "Format: RGBA (with Alpha)" : "Format: RGB (No Alpha)";
+}
+
+[TypeConverter(typeof(ExpandableObjectConverter))]
+public class PbmEncodingOptions : INotifyPropertyChanged
+{
+    private PbmColorType _colorType = PbmColorType.GrayScale;
+    public event PropertyChangedEventHandler? PropertyChanged;
+    public PbmColorType ColorType
+    {
+        get => _colorType;
+        set
+        {
+            if (value != _colorType)
+            {
+                _colorType = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ColorType)));
+            }
+        }
+    }
 }
 
 #endregion
