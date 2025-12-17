@@ -36,7 +36,11 @@ Format-specific encoder configuration:
 - JPEG: Quality  
 - PNG: CompressionLevel  
 - WEBP: Quality, Lossless  
-- TIFF: Compression  
+- TIFF: Compression
+- BMP: BitsPerPixel
+- GIF: UseDithering, ColorPaletteSize
+- TGA: Compress
+- QOI: IncludeAlpha
 Displayed only for relevant TargetFormat.
 
 ---
@@ -53,10 +57,14 @@ Displayed only for relevant TargetFormat.
 ## UI Behaviour
 - TargetFormat dropdown displays: BMP, GIF, JPEG, PNG, TGA, TIFF, WEBP.
 - EncodingOptions shows only parameters relevant to selected TargetFormat.
-- JPEG and WEBP expose Quality slider.
-- PNG exposes CompressionLevel.
-- WEBP exposes Lossless toggle.
-
+- JPEG  exposes Quality list.
+- PNG exposes CompressionLevel list.
+- WEBP exposes  Quality list and Lossless true/false.
+- BMP exposes BitsPerPixel value.
+- GIF exposes UseDithering true/false and ColorPaletteSize value.
+- TIFF exposes Compression list.
+- TGA exposes Compress true/false.
+- QOI exposes IncludeAlpha true/false
 ---
 
 ## Operational Behaviour
