@@ -66,9 +66,17 @@ The engine spawns tasks for source nodes and enters an async execution loop.
 3.  **Check Latch**:
     *   If `Latch == 0`: This was the last required input.
     *   **Gather Payload**: Retrieve all buffered inputs for the target.
-    *   **Schedule Target**: Spawn a new task to execute the target node.
+    *   **Schedule Target**: Dispatch the target node for execution (subject to concurrency limits).
     *   If `Latch > 0`: Do nothing; the target is still waiting for other inputs.
 4.  **Completion**: When all tasks are done and no nodes are pending, the pipeline is complete.
+
+## Concurrency & Scalability
+
+In wide graphs, simply spawning a new `Task` for every ready node can lead to thread pool saturation and context switching overhead. To ensure robustness and scalability:
+
+*   **Concurrency Limiting**: The engine should enforce a maximum degree of parallelism (e.g., via `ParallelOptions.MaxDegreeOfParallelism` or a `SemaphoreSlim`).
+*   **Task Scheduling**: Instead of `Task.Run` immediately, ready nodes should be queued to a bounded scheduler that manages worker threads efficiently.
+*   **Benefits**: Prevents system overload during heavy processing and ensures predictable performance characteristics regardless of graph width.
 
 ## Resource Management & Disposal Strategy
 
