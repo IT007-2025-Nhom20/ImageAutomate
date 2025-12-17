@@ -7,7 +7,8 @@ namespace ImageAutomate.StandardBlocks;
 public enum FlipModeOption
 {
     Horizontal,
-    Vertical
+    Vertical,
+    None
 }
 public class FlipBlock : IBlock
 {
@@ -21,7 +22,7 @@ public class FlipBlock : IBlock
     private int _nodeWidth = 200;
     private int _nodeHeight = 100;
 
-    private FlipModeOption _flipMode = FlipModeOption.Horizontal;
+    private FlipModeOption _flipMode = FlipModeOption.None;
     #endregion
 
     #region IBlock basic
@@ -121,13 +122,15 @@ public class FlipBlock : IBlock
 
         foreach (var sourceItem in inItems.OfType<WorkItem>())
         {
-            sourceItem.Image.Mutate(x => x.Flip(
-                _flipMode == FlipModeOption.Horizontal
-                ? SixLabors.ImageSharp.Processing.FlipMode.Horizontal
-                : SixLabors.ImageSharp.Processing.FlipMode.Vertical));
+            sourceItem.Image.Mutate(x => x.Flip(_flipMode switch
+            {
+                FlipModeOption.Horizontal => SixLabors.ImageSharp.Processing.FlipMode.Horizontal,
+                FlipModeOption.Vertical => SixLabors.ImageSharp.Processing.FlipMode.Vertical,
+                _ => SixLabors.ImageSharp.Processing.FlipMode.None
+            }));
+            
             outputItems.Add(sourceItem);
         }
-
         return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>
             {
                 { _outputs[0], outputItems }
