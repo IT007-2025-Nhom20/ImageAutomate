@@ -61,7 +61,7 @@ IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<S
 *   **Description**: The canonical execution method that accepts Socket-keyed inputs.
 *   **Parameters**: `inputs` - Dictionary mapping input sockets to their work items.
 *   **Returns**: Dictionary mapping output sockets to their work items.
-*   **Implementation Note**: Typically delegates to the string-keyed overload by converting Socket keys to their IDs, since retrieving a socket ID is trivial while finding a Socket from an ID requires searching.
+*   **Implementation Note**: Typically delegates to the string-keyed overload by converting Socket keys to their IDs (via `socket.Id` property access), since retrieving a socket ID is trivial while finding a Socket from an ID requires searching.
 
 #### String-Keyed Execute (Convenience Overload)
 ```csharp
@@ -76,6 +76,8 @@ IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<s
 Both overloads return `IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>>` to enable method chaining regardless of input key type. For example:
 ```csharp
 // Chain executions with different key types
-var result = block2.Execute(block1.Execute(initialData));
+var stringKeyedData = new Dictionary<string, IReadOnlyList<IBasicWorkItem>>();
+var socketKeyedResult1 = block1.Execute(stringKeyedData);  // string keys in, Socket keys out
+var socketKeyedResult2 = block2.Execute(socketKeyedResult1);  // Socket keys in, Socket keys out
 ```
-where `initialData` can use either Socket or string keys, but both return Socket-keyed results that can be passed to subsequent blocks.
+Both blocks return Socket-keyed results that can be seamlessly passed to subsequent blocks.
