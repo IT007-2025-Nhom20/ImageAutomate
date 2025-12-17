@@ -139,13 +139,9 @@ public class GaussianBlurBlock : IBlock
         {
             if (item is WorkItem sourceItem)
             {
-                SixLabors.ImageSharp.Image clonedImage;
-                if (Sigma <= 0.0f)
-                    clonedImage = sourceItem.Image.Clone(x => { });
-                else
-                    clonedImage = sourceItem.Image.Clone(x => x.GaussianBlur(Sigma));
-                var newItem = new WorkItem(clonedImage, sourceItem.Metadata);
-                outputItems.Add(newItem);
+                if (Sigma > 0.0f)
+                    sourceItem.Image.Mutate(x => x.GaussianBlur(Sigma));
+                outputItems.Add(sourceItem);
             }
         }
         

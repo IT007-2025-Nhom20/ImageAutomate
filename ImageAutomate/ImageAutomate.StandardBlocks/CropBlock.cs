@@ -247,10 +247,8 @@ public class CropBlock : IBlock
             if (item is WorkItem sourceItem)
             {
                 var rect = BuildCropRegion(sourceItem.Image.Width, sourceItem.Image.Height);
-                var clonedImage = sourceItem.Image.Clone(x => x.Crop(rect));
-                var newItem = new WorkItem(clonedImage, sourceItem.Metadata);
-                
-                outputItems.Add(newItem);
+                sourceItem.Image.Mutate(x => x.Crop(rect));
+                outputItems.Add(sourceItem);
             }
         }
         

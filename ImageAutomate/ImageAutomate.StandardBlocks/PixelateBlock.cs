@@ -120,9 +120,8 @@ public class PixelateBlock: IBlock
         {
             if (item is WorkItem sourceItem)
             {
-                var clonedImage = sourceItem.Image.Clone(x => x.Pixelate(Size));
-                var newItem = new WorkItem(clonedImage, sourceItem.Metadata);
-                outputItems.Add(newItem);
+                sourceItem.Image.Mutate(x => x.Pixelate(Size));
+                outputItems.Add(sourceItem);
             }
         }
 

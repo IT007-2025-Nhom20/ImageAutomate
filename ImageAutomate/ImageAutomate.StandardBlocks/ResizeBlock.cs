@@ -249,9 +249,8 @@ public class ResizeBlock : IBlock
             if (item is WorkItem sourceItem)
             {
                 var resizeOptions = BuildResizeOptions(sourceItem.Image.Width, sourceItem.Image.Height);
-                var clonedImage = sourceItem.Image.Clone(x => x.Resize(resizeOptions));
-                var newItem = new WorkItem(clonedImage, sourceItem.Metadata);
-                outputItems.Add(newItem);
+                sourceItem.Image.Mutate(x => x.Resize(resizeOptions));
+                outputItems.Add(sourceItem);
             }
         }
 

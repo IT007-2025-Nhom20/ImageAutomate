@@ -132,12 +132,9 @@ public class VignetteBlock : IBlock
         {
             if (item is WorkItem sourceItem)
             {
-                SixLabors.ImageSharp.Image clonedImage;
-                if (_strength <= 0f)
-                    clonedImage = sourceItem.Image.Clone(x => { });
-                else
+                if (_strength > 0f)
                 {
-                    clonedImage = sourceItem.Image.Clone(
+                    sourceItem.Image.Mutate(
                         x => x.Vignette(
                             new GraphicsOptions
                             {
@@ -147,8 +144,7 @@ public class VignetteBlock : IBlock
                         )
                     );
                 }
-                var newItem = new WorkItem(clonedImage, sourceItem.Metadata);
-                outputItems.Add(newItem);
+                outputItems.Add(sourceItem);
             }
         }
 

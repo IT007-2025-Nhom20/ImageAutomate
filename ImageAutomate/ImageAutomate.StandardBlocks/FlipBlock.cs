@@ -123,13 +123,11 @@ public class FlipBlock : IBlock
         {
             if (item is WorkItem sourceItem)
             {
-                var clonedImage = sourceItem.Image.Clone(x => x.Flip(
+                sourceItem.Image.Mutate(x => x.Flip(
                     _flipMode == FlipModeOption.Horizontal
                     ? SixLabors.ImageSharp.Processing.FlipMode.Horizontal
                     : SixLabors.ImageSharp.Processing.FlipMode.Vertical));
-                var newItem = new WorkItem(clonedImage, sourceItem.Metadata);
-                
-                outputItems.Add(newItem);
+                outputItems.Add(sourceItem);
             }
         }
 

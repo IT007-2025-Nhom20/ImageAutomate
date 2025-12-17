@@ -120,13 +120,9 @@ public class HueBlock : IBlock
         {
             if (item is WorkItem sourceItem)
             {
-                SixLabors.ImageSharp.Image clonedImage;
-                if (Math.Abs(HueShift) < 0.01f)
-                    clonedImage = sourceItem.Image.Clone(x => { });
-                else
-                    clonedImage = sourceItem.Image.Clone(x => x.Hue(HueShift));
-                var newItem = new WorkItem(clonedImage, sourceItem.Metadata);
-                outputItems.Add(newItem);
+                if (Math.Abs(HueShift) >= 0.01f)
+                    sourceItem.Image.Mutate(x => x.Hue(HueShift));
+                outputItems.Add(sourceItem);
             }
         }
 

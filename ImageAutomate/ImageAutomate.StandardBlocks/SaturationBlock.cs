@@ -119,13 +119,9 @@ public class SaturationBlock : IBlock
         {
             if (item is WorkItem sourceItem)
             {
-                SixLabors.ImageSharp.Image clonedImage;
-                if (Math.Abs(Saturation - 1.0f) < float.Epsilon)
-                    clonedImage = sourceItem.Image.Clone(x => { });
-                else
-                    clonedImage = sourceItem.Image.Clone(x => x.Saturate(Saturation));
-                var newItem = new WorkItem(clonedImage, sourceItem.Metadata);
-                outputItems.Add(newItem);
+                if (Math.Abs(Saturation - 1.0f) >= float.Epsilon)
+                    sourceItem.Image.Mutate(x => x.Saturate(Saturation));
+                outputItems.Add(sourceItem);
             }
         }
 

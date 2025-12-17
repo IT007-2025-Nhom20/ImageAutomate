@@ -119,13 +119,9 @@ public class SharpenBlock : IBlock
         {
             if (item is WorkItem sourceItem)
             {
-                SixLabors.ImageSharp.Image clonedImage;
-                if (Amount <= 0.0f)
-                    clonedImage = sourceItem.Image.Clone(x => { });
-                else
-                    clonedImage = sourceItem.Image.Clone(x => x.GaussianSharpen(Amount));
-                var newItem = new WorkItem(clonedImage, sourceItem.Metadata);
-                outputItems.Add(newItem);
+                if (Amount > 0.0f)
+                    sourceItem.Image.Mutate(x => x.GaussianSharpen(Amount));
+                outputItems.Add(sourceItem);
             }
         }
 

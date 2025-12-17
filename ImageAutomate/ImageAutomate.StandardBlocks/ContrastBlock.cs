@@ -120,10 +120,8 @@ public class ContrastBlock : IBlock
         {
             if (item is WorkItem sourceItem)
             {
-                var clonedImage = sourceItem.Image.Clone(x => x.Contrast(Contrast));
-                var newItem = new WorkItem(clonedImage, sourceItem.Metadata);
-
-                outputItems.Add(newItem);
+                sourceItem.Image.Mutate(x => x.Contrast(Contrast));
+                outputItems.Add(sourceItem);
             }
         }
 
