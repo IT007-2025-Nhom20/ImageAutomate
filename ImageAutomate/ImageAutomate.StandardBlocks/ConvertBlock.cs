@@ -9,7 +9,9 @@ using SixLabors.ImageSharp.Formats.Qoi;
 using SixLabors.ImageSharp.Formats.Tga;
 using SixLabors.ImageSharp.Formats.Tiff;
 using SixLabors.ImageSharp.Formats.Webp;
+using System.Collections.Immutable;
 using System.ComponentModel;
+using System.Security.Cryptography.X509Certificates;
 
 namespace ImageAutomate.StandardBlocks;
 
@@ -378,69 +380,56 @@ public class ConvertBlock : IBlock
 
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
-        // Agent exempt: do not implement
-        throw new NotImplementedException();
+        return Execute(
+            inputs.ToDictionary(
+                kvp => kvp.Key.Id,
+                kvp => kvp.Value
+            )
+        );
     }
 
 
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         // Agent exempt: do not implement
-        throw new NotImplementedException();
+        if (!inputs.TryGetValue(_inputs[0].Id, out var inItems))
+            throw new ArgumentException($"Input items not found for the expected input socket {_inputs[0].Id}.", nameof(inputs));
+
+        var outputItems = new List<IBasicWorkItem>();
+
+        foreach (var item in inItems)
+        {
+            if (item is WorkItem sourceItem)
+            {
+                IImmutableDictionary<string, object> metadata = sourceItem.Metadata;
+                metadata = metadata.SetItem("Format", TargetFormat.ToString());
+                metadata = metadata.SetItem("EncodingOptions", TargetFormat switch
+                {
+                    ImageFormat.Jpeg => (object)JpegOptions,
+                    ImageFormat.Png => (object)PngOptions,
+                    ImageFormat.Bmp => (object)BmpOptions,
+                    ImageFormat.Gif => (object)GifOptions,
+                    ImageFormat.Tiff => (object)TiffOptions,
+                    ImageFormat.Tga => (object)TgaOptions,
+                    ImageFormat.WebP => (object)WebPOptions,
+                    ImageFormat.Qoi => (object)QoiOptions,
+                    ImageFormat.Unknown => throw new NotImplementedException(),
+                    ImageFormat.Pbm => throw new NotImplementedException(),
+                    _ => null
+                } ?? null!);
+                outputItems.Add(
+                    new WorkItem(
+                        sourceItem.Image,
+                        metadata
+                    )
+                );
+            }
+        }
+
+        return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>> { { _outputs[0], outputItems } };
     }
 
     #endregion
-
-    private IImageEncoder CreateEncoderForTargetFormat()
-    {
-        return TargetFormat switch
-        {
-            ImageFormat.Jpeg => new JpegEncoder
-            {
-                Quality = JpegOptions.Quality
-            },
-            ImageFormat.Png => new PngEncoder
-            {
-                CompressionLevel =
-                    (SixLabors.ImageSharp.Formats.Png.PngCompressionLevel)(int)PngOptions.CompressionLevel
-            },
-            ImageFormat.Bmp => new BmpEncoder
-            {
-                BitsPerPixel = (BmpOptions.BitsPerPixel == BmpBitsPerPixel.Pixel24)
-                   ? SixLabors.ImageSharp.Formats.Bmp.BmpBitsPerPixel.Pixel24
-                   : SixLabors.ImageSharp.Formats.Bmp.BmpBitsPerPixel.Pixel32
-            },
-            ImageFormat.Gif => new GifEncoder(),
-            ImageFormat.Tiff => new TiffEncoder
-            {
-                Compression =
-                    (TiffOptions.Compression == TiffCompression.None) ? SixLabors.ImageSharp.Formats.Tiff.Constants.TiffCompression.None :
-                    (TiffOptions.Compression == TiffCompression.Lzw) ? SixLabors.ImageSharp.Formats.Tiff.Constants.TiffCompression.Lzw :
-                    (TiffOptions.Compression == TiffCompression.Ccitt4) ? SixLabors.ImageSharp.Formats.Tiff.Constants.TiffCompression.CcittGroup4Fax :
-                    (TiffOptions.Compression == TiffCompression.Rle) ? SixLabors.ImageSharp.Formats.Tiff.Constants.TiffCompression.PackBits :
-                    SixLabors.ImageSharp.Formats.Tiff.Constants.TiffCompression.Deflate
-            },
-            ImageFormat.Tga => new TgaEncoder
-            {
-                Compression = TgaOptions.Compress
-                    ? TgaCompression.RunLength
-                    : TgaCompression.None
-            },
-            ImageFormat.WebP => new WebpEncoder
-            {
-                Quality = (int)Math.Clamp(WebPOptions.Quality, 0f, 100f),
-                FileFormat = WebPOptions.Lossless
-                    ? WebpFileFormatType.Lossless
-                    : WebpFileFormatType.Lossy
-            },
-            ImageFormat.Qoi => new QoiEncoder
-            {
-                Channels = QoiOptions.IncludeAlpha ? QoiChannels.Rgba : QoiChannels.Rgb
-            },
-            ImageFormat.Pbm => new PbmEncoder(),
-            _ => throw new NotSupportedException($"ConvertBlock: Target format '{TargetFormat}' is not supported."),
-        };
-    }
 
     #region Disposing
 

@@ -167,12 +167,14 @@ public class LoadBlock : IBlock
 
         foreach (var file in files)
         {
+            Image image = LoadImageFile(file);
             var builder = ImmutableDictionary.CreateBuilder<string, object>();
             builder.Add("BatchFolder", SourcePath);
             builder.Add("FileName", Path.GetFileName(file));
             builder.Add("FullPath", file);
+            builder.Add("Format", image.Metadata.DecodedImageFormat?.Name ?? "Unknown");
             var metadata = builder.ToImmutable();
-            WorkItem wi = new(LoadImageFile(file), metadata);
+            WorkItem wi = new(image, metadata);
             yield return wi;
         }
     }
