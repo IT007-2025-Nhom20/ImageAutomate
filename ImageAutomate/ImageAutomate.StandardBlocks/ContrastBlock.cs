@@ -1,42 +1,22 @@
 ﻿using ImageAutomate.Core;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
-internal class ContrastBlock : IBlock
+public class ContrastBlock : IBlock
 {
     #region Fields
 
-    private readonly Socket _inputSocket = new("Contrast.In", "Image.In");
-    private readonly Socket _outputSocket = new("Contrast.Out", "Image.Out");
-    private readonly IReadOnlyList<Socket> _inputs;
-    private readonly IReadOnlyList<Socket> _outputs;
+    private readonly IReadOnlyList<Socket> _inputs = [new("Contrast.In", "Image.In")];
+    private readonly IReadOnlyList<Socket> _outputs = [new("Contrast.Out", "Image.Out")];
 
     private bool _disposed;
-
-    private string _title = "Contrast";
-    private string _content = "Adjust image contrast";
 
     private int _nodeWidth = 200;
     private int _nodeHeight = 100;
 
-    // Configuration: Contrast factor in [0.0, 3.0], default 1.0 = no change
     private float _contrast = 1.0f;
-    private bool _alwaysEncoder = true;
-
-    #endregion
-
-    #region Ctor
-
-    public ContrastBlock()
-    {
-        _inputs = new[] { _inputSocket };
-        _outputs = new[] { _outputSocket };
-    }
 
     #endregion
 
@@ -44,15 +24,9 @@ internal class ContrastBlock : IBlock
 
     public string Name => "Contrast";
 
-    public string Title
-    {
-        get => _title;
-    }
+    public string Title => "Contrast";
 
-    public string Content
-    {
-        get => $"Contrast: {Contrast}\nRe-encode: {AlwaysEncode}";
-    }
+    public string Content => $"Contrast: {Contrast}";
 
     #endregion
 
@@ -115,20 +89,6 @@ internal class ContrastBlock : IBlock
         }
     }
 
-    [Category("Configuration")]
-    [Description("Force re-encoding even when format matches")]
-    public bool AlwaysEncode
-    {
-        get => _alwaysEncoder;
-        set
-        {
-            if (_alwaysEncoder != value)
-            {
-                _alwaysEncoder = value;
-                OnPropertyChanged(nameof(AlwaysEncode));
-            }
-        }
-    }
     #endregion
 
     #region INotifyPropertyChanged
@@ -140,108 +100,29 @@ internal class ContrastBlock : IBlock
 
     #endregion
 
-    #region Execute (Socket keyed)
+    #region Execute
 
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
-        if (inputs is null) throw new ArgumentNullException(nameof(inputs));
-
-        inputs.TryGetValue(_inputSocket, out var inItems);
-        inItems ??= Array.Empty<IBasicWorkItem>();
-
-        var resultList = new List<IBasicWorkItem>(inItems.Count);
-
-        foreach (var item in inItems)
-        {
-            var adjusted = ApplyContrast(item);
-            if (adjusted != null)
-                resultList.Add(adjusted);
-        }
-
-        var readOnly = new ReadOnlyCollection<IBasicWorkItem>(resultList);
-
-        return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>
-            {
-                { _outputSocket, readOnly }
-            };
+        return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value));
     }
-
-    #endregion
-
-    #region Execute (string keyed)
 
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
-        if (inputs is null) throw new ArgumentNullException(nameof(inputs));
+        if (!inputs.TryGetValue(_inputs[0].Id, out var inItems))
+            throw new ArgumentException($"Input items not found for the expected input socket {_inputs[0].Id}.", nameof(inputs));
 
-        inputs.TryGetValue(_inputSocket.Id, out var inItems);
-        inItems ??= Array.Empty<IBasicWorkItem>();
+        var outputItems = new List<IBasicWorkItem>();
 
-        var resultList = new List<IBasicWorkItem>(inItems.Count);
-
-        foreach (var item in inItems)
+        foreach (var sourceItem in inItems.OfType<WorkItem>())
         {
-            var adjusted = ApplyContrast(item);
-            if (adjusted != null)
-                resultList.Add(adjusted);
+            sourceItem.Image.Mutate(x => x.Contrast(Contrast));
+            outputItems.Add(sourceItem);
         }
 
-        var readOnly = new ReadOnlyCollection<IBasicWorkItem>(resultList);
-
-        return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>
-            {
-                { _outputSocket, readOnly }
-            };
-    }
-
-    #endregion
-
-    #region Core contrast logic
-
-    private IBasicWorkItem? ApplyContrast(IBasicWorkItem item)
-    {
-        if (item is null)
-            throw new ArgumentNullException(nameof(item));
-
-        if (!_alwaysEncoder)
-            return item;
-
-        // Lấy image bytes từ metadata
-        if (!item.Metadata.TryGetValue("ImageData", out var dataObj) ||
-            dataObj is not byte[] imageBytes ||
-            imageBytes.Length == 0)
-        {
-            // Không có ảnh → trả lại item cũ
-            return item;
-        }
-
-        using var image = Image.Load<Rgba32>(imageBytes);
-
-        // Áp dụng contrast theo ImageSharp
-        // Contrast = 1.0 => không thay đổi
-        image.Mutate(x => x.Contrast(Contrast));
-
-        // Giữ nguyên format decode nếu có, fallback PNG
-        var decodedFormat = image.Metadata.DecodedImageFormat
-                            ?? SixLabors.ImageSharp.Formats.Png.PngFormat.Instance;
-
-        using var ms = new MemoryStream();
-        image.Save(ms, decodedFormat);
-        var outBytes = ms.ToArray();
-
-        // Clone metadata + cập nhật kích thước & timestamp
-        var newMetadata = new Dictionary<string, object>(item.Metadata)
-        {
-            ["ImageData"] = outBytes,
-            ["Width"] = image.Width,
-            ["Height"] = image.Height,
-            ["ContrastAppliedAtUtc"] = DateTime.UtcNow,
-            ["Contrast"] = Contrast
-        };
-
-        return new ContrastBlockWorkItem(newMetadata);
+        return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>> { { _outputs[0], outputItems } };
     }
 
     #endregion
@@ -260,22 +141,6 @@ internal class ContrastBlock : IBlock
     {
         Dispose(true);
         GC.SuppressFinalize(this);
-    }
-
-    #endregion
-
-    #region Nested WorkItem
-
-    private sealed class ContrastBlockWorkItem : IBasicWorkItem
-    {
-        public Guid Id { get; } = Guid.NewGuid();
-
-        public IDictionary<string, object> Metadata { get; }
-
-        public ContrastBlockWorkItem(IDictionary<string, object> metadata)
-        {
-            Metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-        }
     }
 
     #endregion

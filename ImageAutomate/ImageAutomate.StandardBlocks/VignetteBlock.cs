@@ -1,42 +1,23 @@
 ﻿using ImageAutomate.Core;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
-public class VignetteBlock
+public class VignetteBlock : IBlock
 {
     #region Fields
 
-    private readonly Socket _inputSocket = new("Vignette.In", "Image.In");
-    private readonly Socket _outputSocket = new("Vignette.Out", "Image.Out");
-    private readonly IReadOnlyList<Socket> _inputs;
-    private readonly IReadOnlyList<Socket> _outputs;
+    private readonly IReadOnlyList<Socket> _inputs = [new("Vignette.In", "Image.In")];
+    private readonly IReadOnlyList<Socket> _outputs = [new("Vignette.Out", "Image.Out")];
 
     private int _width = 200;
     private int _height = 100;
 
-    private string _title = "Vignette";
-    private string _content = "Apply vignette effect";
-
-    // Config
     private Color _color = Color.Black;
-    private float _strength = 0.6f; // 0–1
-
+    private float _strength = 0.6f;
     private bool _disposed;
-    private bool _alwaysEncode = true;
-    #endregion
-
-    #region ctor
-
-    public VignetteBlock()
-    {
-        _inputs = new[] { _inputSocket };
-        _outputs = new[] { _outputSocket };
-    }
 
     #endregion
 
@@ -53,15 +34,9 @@ public class VignetteBlock
 
     public string Name => "Vignette";
 
-    public string Title
-    {
-        get => _title;
-    }
+    public string Title => "Vignette";
 
-    public string Content
-    {
-        get => $"Color: {Color}\nStrength: {Strength}\nRe-encode: {AlwaysEncode}";
-    }
+    public string Content => $"Color: {Color}\nStrength: {Strength}";
 
     [Category("Layout")]
     [Description("Width of the block node")]
@@ -128,20 +103,6 @@ public class VignetteBlock
         }
     }
 
-    [Category("Configuration")]
-    [Description("Force re-encoding even when format matches")]
-    public bool AlwaysEncode
-    {
-        get => _alwaysEncode;
-        set
-        {
-            if (_alwaysEncode != value)
-            {
-                _alwaysEncode = value;
-                OnPropertyChanged(nameof(AlwaysEncode));
-            }
-        }
-    }
     #endregion
 
     #region Sockets
@@ -156,110 +117,38 @@ public class VignetteBlock
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
-        if (inputs is null) throw new ArgumentNullException(nameof(inputs));
-
-        inputs.TryGetValue(_inputSocket, out var inItems);
-        inItems ??= Array.Empty<IBasicWorkItem>();
-
-        var result = new List<IBasicWorkItem>(inItems.Count);
-
-        foreach (var item in inItems)
-        {
-            var processed = ApplyVignette(item);
-            result.Add(processed);
-        }
-
-        var readOnly = new ReadOnlyCollection<IBasicWorkItem>(result);
-
-        return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>
-            {
-                { _outputSocket, readOnly }
-            };
+        return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value));
     }
 
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
-        if (inputs is null) throw new ArgumentNullException(nameof(inputs));
+        if (!inputs.TryGetValue(_inputs[0].Id, out var inItems))
+            throw new ArgumentException($"Input items not found for the expected input socket {_inputs[0].Id}.", nameof(inputs));
 
-        inputs.TryGetValue(_inputSocket.Id, out var inItems);
-        inItems ??= Array.Empty<IBasicWorkItem>();
+        var outputItems = new List<IBasicWorkItem>();
 
-        var result = new List<IBasicWorkItem>(inItems.Count);
-
-        foreach (var item in inItems)
+        foreach (var sourceItem in inItems.OfType<WorkItem>())
         {
-            var processed = ApplyVignette(item);
-            result.Add(processed);
+            if (_strength > 0f)
+            {
+                sourceItem.Image.Mutate(
+                    x => x.Vignette(
+                        new GraphicsOptions
+                        {
+                            BlendPercentage = _strength
+                        },
+                        _color
+                    )
+                );
+            }
+            outputItems.Add(sourceItem);
         }
-
-        var readOnly = new ReadOnlyCollection<IBasicWorkItem>(result);
 
         return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>
             {
-                { _outputSocket, readOnly }
+                { _outputs[0], outputItems }
             };
-    }
-
-    /// <summary>
-    /// Áp vignette lên 1 work item, clone metadata và tạo work item mới.
-    /// </summary>
-    private IBasicWorkItem ApplyVignette(IBasicWorkItem item)
-    {
-        if (item is null)
-            throw new ArgumentNullException(nameof(item));
-
-        if (!_alwaysEncode)
-            return item;
-
-        // Strength = 0 -> no-op, trả về nguyên item
-        if (_strength <= 0f)
-            return item;
-
-        if (!item.Metadata.TryGetValue("ImageData", out var dataObj) ||
-            dataObj is not byte[] bytes ||
-            bytes.Length == 0)
-        {
-            // Không có dữ liệu ảnh -> không làm gì
-            return item;
-        }
-
-        using var image = Image.Load<Rgba32>(bytes);
-        var format = image.Metadata.DecodedImageFormat;
-        if (format == null)
-        {
-            throw new InvalidOperationException($"VignetteBlock: Unsupported or unknown image format.");
-        }
-        // Map Strength -> GraphicsOptions.BlendPercentage  (0..1)
-        var options = new GraphicsOptions
-        {
-            BlendPercentage = _strength
-        };
-
-        // Nếu Strength >= 1 gần như bằng 1 -> không cần options, dùng overload đơn giản cũng được,
-        // nhưng để linear, ta luôn dùng GraphicsOptions.
-        image.Mutate(ctx =>
-        {
-            // Nếu Color là black (default) nhưng bạn vẫn muốn dùng explicit color thì giữ như dưới
-            ctx.Vignette(options, _color);
-        });
-
-        using var ms = new MemoryStream();
-        image.Save(ms, format);
-        var outBytes = ms.ToArray();
-
-        // Clone metadata để preserve các key khác
-        var newMetadata = new Dictionary<string, object>(item.Metadata)
-        {
-            ["ImageData"] = outBytes,
-            ["Width"] = image.Width,
-            ["Height"] = image.Height,
-            ["VignetteColor"] = _color,
-            ["VignetteStrength"] = _strength,
-            ["LastOperation"] = "Vignette"
-        };
-
-        return new VignetteWorkItem(item.Id, newMetadata);
     }
 
     #endregion
@@ -270,7 +159,6 @@ public class VignetteBlock
     {
         if (!_disposed)
         {
-            // Hiện tại block không giữ unmanaged resources nên không cần làm gì thêm
             _disposed = true;
         }
     }
@@ -279,26 +167,6 @@ public class VignetteBlock
     {
         Dispose(true);
         GC.SuppressFinalize(this);
-    }
-
-    #endregion
-
-    #region Nested WorkItem
-
-    /// <summary>
-    /// Work item đơn giản cho Vignette, giữ nguyên Id gốc, cập nhật Metadata.
-    /// </summary>
-    private sealed class VignetteWorkItem : IBasicWorkItem
-    {
-        public Guid Id { get; }
-
-        public IDictionary<string, object> Metadata { get; }
-
-        public VignetteWorkItem(Guid id, IDictionary<string, object> metadata)
-        {
-            Id = id;
-            Metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-        }
     }
 
     #endregion

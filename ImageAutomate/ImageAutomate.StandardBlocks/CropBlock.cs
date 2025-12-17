@@ -1,10 +1,10 @@
 ﻿using ImageAutomate.Core;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
+
 namespace ImageAutomate.StandardBlocks;
+
 public enum CropModeOption
 {
     Rectangle,
@@ -28,20 +28,14 @@ public class CropBlock : IBlock
 {
     #region Fields
 
-    private readonly Socket _inputSocket = new("Crop.In", "Image.In");
-    private readonly Socket _outputSocket = new("Crop.Out", "Image.Out");
-    private readonly IReadOnlyList<Socket> _inputs;
-    private readonly IReadOnlyList<Socket> _outputs;
+    private readonly IReadOnlyList<Socket> _inputs = [new("Crop.In", "Image.In")];
+    private readonly IReadOnlyList<Socket> _outputs = [new("Crop.Out", "Image.Out")];
 
     private bool _disposed;
-
-    private string _title = "Crop";
-    private string _content = "Crop image";
 
     private int _nodeWidth = 200;
     private int _nodeHeight = 110;
 
-    // Configuration
     private CropModeOption _cropMode = CropModeOption.Rectangle;
 
     private int _x;
@@ -50,27 +44,13 @@ public class CropBlock : IBlock
     private int _cropHeight = 100;
 
     private AnchorPositionOption _anchorPosition = AnchorPositionOption.Center;
-    private bool _alwaysEncoder = true;
-    #endregion
-
-    #region Ctor
-
-    public CropBlock()
-    {
-        _inputs = new[] { _inputSocket };
-        _outputs = new[] { _outputSocket };
-    }
-
     #endregion
 
     #region IBlock basic
 
     public string Name => "Crop";
 
-    public string Title
-    {
-        get => _title;
-    }
+    public string Title => "Crop";
 
     public string Content
     {
@@ -80,13 +60,11 @@ public class CropBlock : IBlock
                 return $"Crop Mode: {CropMode}\n" +
                        $"Left: {X} Top: {Y}\n" +
                        $"Widht: {CropWidth} Height: {CropHeight}\n" +
-                       $"Anchor Position: {AnchorPosition}\n" +
-                       $"Re-Encode: {AlwaysEncoder}";
+                       $"Anchor Position: {AnchorPosition}\n";
 
             return $"Crop Mode: {CropMode}\n" +
                    $"Widht: {CropWidth} Height: {CropHeight}\n" +
-                   $"Anchor Position: {AnchorPosition}\n" +
-                   $"Re-Encode: {AlwaysEncoder}";
+                   $"Anchor Position: {AnchorPosition}\n";
         }
     }
 
@@ -237,20 +215,6 @@ public class CropBlock : IBlock
         }
     }
 
-    [Category("Configuration")]
-    [Description("Force re-encoding even when format matches")]
-    public bool AlwaysEncoder
-    {
-        get => _alwaysEncoder;
-        set
-        {
-            if (_alwaysEncoder != value)
-            {
-                _alwaysEncoder = value;
-                OnPropertyChanged(nameof(AlwaysEncoder));
-            }
-        }
-    }
     #endregion
 
     #region INotifyPropertyChanged
@@ -262,150 +226,62 @@ public class CropBlock : IBlock
 
     #endregion
 
-    #region Execute (Socket keyed)
+    #region Execute
 
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
-        if (inputs is null) throw new ArgumentNullException(nameof(inputs));
-
-        inputs.TryGetValue(_inputSocket, out var inItems);
-        inItems ??= Array.Empty<IBasicWorkItem>();
-
-        var resultList = new List<IBasicWorkItem>(inItems.Count);
-
-        foreach (var item in inItems)
-        {
-            var cropped = CropWorkItem(item);
-            if (cropped != null)
-                resultList.Add(cropped);
-        }
-
-        var readOnly = new ReadOnlyCollection<IBasicWorkItem>(resultList);
-
-        return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>
-            {
-                { _outputSocket, readOnly }
-            };
+        return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value));
     }
-
-    #endregion
-
-    #region Execute (string keyed)
 
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
-        if (inputs is null) throw new ArgumentNullException(nameof(inputs));
+        if (!inputs.TryGetValue(_inputs[0].Id, out var inItems))
+            throw new ArgumentException($"Input items not found for the expected input socket {_inputs[0].Id}.", nameof(inputs)); 
 
-        inputs.TryGetValue(_inputSocket.Id, out var inItems);
-        inItems ??= Array.Empty<IBasicWorkItem>();
+        var outputItems = new List<IBasicWorkItem>();
 
-        var resultList = new List<IBasicWorkItem>(inItems.Count);
-
-        foreach (var item in inItems)
+        foreach (var sourceItem in inItems.OfType<WorkItem>())
         {
-            var cropped = CropWorkItem(item);
-            if (cropped != null)
-                resultList.Add(cropped);
+            var rect = BuildCropRegion(sourceItem.Image.Width, sourceItem.Image.Height);
+            sourceItem.Image.Mutate(x => x.Crop(rect));
+            outputItems.Add(sourceItem);
         }
-
-        var readOnly = new ReadOnlyCollection<IBasicWorkItem>(resultList);
-
+        
         return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>
-            {
-                { _outputSocket, readOnly }
-            };
+        {
+            { _outputs[0], outputItems }
+        };
     }
 
     #endregion
 
-    #region Core crop logic
+    #region Crop Region Builders
 
-    private IBasicWorkItem? CropWorkItem(IBasicWorkItem item)
+    private Rectangle BuildCropRegion(int sourceWidth, int sourceHeight)
     {
-        if (item is null)
-            throw new ArgumentNullException(nameof(item));
-
-        if (!_alwaysEncoder)
-            return item;
-
-        if (!item.Metadata.TryGetValue("ImageData", out var dataObj) ||
-            dataObj is not byte[] imageBytes ||
-            imageBytes.Length == 0)
+        return CropMode switch
         {
-            // Không có ảnh → pass-through
-            return item;
-        }
-
-        using var image = Image.Load<Rgba32>(imageBytes);
-        var srcW = image.Width;
-        var srcH = image.Height;
-
-        // Tính rectangle crop
-        var rect = BuildCropRectangle(srcW, srcH);
-
-        // Validate trong bounds
-        if (rect.X < 0 || rect.Y < 0 ||
-            rect.Right > srcW || rect.Bottom > srcH)
-        {
-            throw new InvalidOperationException(
-                $"CropBlock: Crop rectangle {rect} is outside image bounds ({srcW}x{srcH}).");
-        }
-
-        // Thực hiện crop
-        image.Mutate(x => x.Crop(rect));
-
-        // Giữ nguyên format decode nếu có, fallback PNG
-        var decodedFormat = image.Metadata.DecodedImageFormat
-                            ?? SixLabors.ImageSharp.Formats.Png.PngFormat.Instance;
-
-        using var ms = new MemoryStream();
-        image.Save(ms, decodedFormat);
-        var outBytes = ms.ToArray();
-
-        var newMetadata = new Dictionary<string, object>(item.Metadata)
-        {
-            ["ImageData"] = outBytes,
-            ["Width"] = image.Width,
-            ["Height"] = image.Height,
-            ["CroppedAtUtc"] = DateTime.UtcNow
+            CropModeOption.Rectangle => BuildRectangleCropRegion(sourceWidth, sourceHeight),
+            CropModeOption.Center => BuildCenteredCropRegion(sourceWidth, sourceHeight),
+            CropModeOption.Anchor => BuildAnchorCropRegion(sourceWidth, sourceHeight),
+            _ => throw new NotSupportedException($"CropBlock: Unsupported CropMode '{CropMode}'."),
         };
-
-        return new CropBlockWorkItem(newMetadata);
     }
 
-    private Rectangle BuildCropRectangle(int srcWidth, int srcHeight)
-    {
-        switch (CropMode)
-        {
-            case CropModeOption.Rectangle:
-                return BuildRectangleMode(srcWidth, srcHeight);
-
-            case CropModeOption.Center:
-                return BuildCenterMode(srcWidth, srcHeight);
-
-            case CropModeOption.Anchor:
-                return BuildAnchorMode(srcWidth, srcHeight);
-
-            default:
-                throw new NotSupportedException($"CropBlock: Unsupported CropMode '{CropMode}'.");
-        }
-    }
-
-    private Rectangle BuildRectangleMode(int srcWidth, int srcHeight)
+    private Rectangle BuildRectangleCropRegion(int sourceWidth, int sourceHeight)
     {
         if (CropWidth <= 0 || CropHeight <= 0)
             throw new InvalidOperationException("CropBlock (Rectangle): CropWidth and CropHeight must be positive.");
 
-        // X, Y đã validate >= 0 ở setter
-        if (X >= srcWidth || Y >= srcHeight)
+        if (X >= sourceWidth || Y >= sourceHeight)
             throw new InvalidOperationException("CropBlock (Rectangle): X/Y start outside image bounds.");
 
         return new Rectangle(X, Y, CropWidth, CropHeight);
     }
 
-    private Rectangle BuildCenterMode(int srcWidth, int srcHeight)
+    private Rectangle BuildCenteredCropRegion(int srcWidth, int srcHeight)
     {
         if (CropWidth <= 0 || CropHeight <= 0)
             throw new InvalidOperationException("CropBlock (Center): CropWidth and CropHeight must be positive.");
@@ -420,7 +296,7 @@ public class CropBlock : IBlock
         return new Rectangle(x, y, CropWidth, CropHeight);
     }
 
-    private Rectangle BuildAnchorMode(int srcWidth, int srcHeight)
+    private Rectangle BuildAnchorCropRegion(int srcWidth, int srcHeight)
     {
         if (CropWidth <= 0 || CropHeight <= 0)
             throw new InvalidOperationException("CropBlock (Anchor): CropWidth and CropHeight must be positive.");
@@ -501,22 +377,6 @@ public class CropBlock : IBlock
     {
         Dispose(true);
         GC.SuppressFinalize(this);
-    }
-
-    #endregion
-
-    #region Nested WorkItem
-
-    private sealed class CropBlockWorkItem : IBasicWorkItem
-    {
-        public Guid Id { get; } = Guid.NewGuid();
-
-        public IDictionary<string, object> Metadata { get; }
-
-        public CropBlockWorkItem(IDictionary<string, object> metadata)
-        {
-            Metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
-        }
     }
 
     #endregion

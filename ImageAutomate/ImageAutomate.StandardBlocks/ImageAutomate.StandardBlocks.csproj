@@ -7,11 +7,12 @@
   </PropertyGroup>
 	
   <ItemGroup>
-	<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+	  <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ImageAutomate.Core\ImageAutomate.Core.csproj" />
+    <ProjectReference Include="..\ImageAutomate.Utils\ImageAutomate.Utils.csproj" />
   </ItemGroup>
 
 </Project>
