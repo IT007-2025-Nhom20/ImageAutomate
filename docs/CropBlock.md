@@ -18,10 +18,10 @@ Left coordinate of crop origin (pixels). Used in Rectangle mode.
 Top coordinate of crop origin (pixels). Used in Rectangle mode.
 
 ### Width
-Crop width in pixels. Required for Rectangle mode.
+Crop width in pixels. Required for all mode.
 
 ### Height
-Crop height in pixels. Required for Rectangle mode.
+Crop height in pixels. Required for all mode.
 
 ### AnchorPosition
 Used when CropMode = Anchor. Supported values:
@@ -43,7 +43,7 @@ Used when CropMode = Anchor. Supported values:
 
 ## UI Behaviour
 - CropMode selectable via dropdown.
-- X, Y, Width, Height fields enabled only when CropMode = Rectangle.
+- X, Y fields enabled only when CropMode = Rectangle.
 - AnchorPosition dropdown visible only when CropMode = Anchor.
 
 ## Operational Behaviour
