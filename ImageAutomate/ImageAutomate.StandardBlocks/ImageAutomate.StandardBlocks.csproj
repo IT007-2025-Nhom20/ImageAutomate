@@ -12,7 +12,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ImageAutomate.Core\ImageAutomate.Core.csproj" />
-    <ProjectReference Include="..\ImageAutomate.Utils\ImageAutomate.Utils.csproj" />
   </ItemGroup>
 
 </Project>
