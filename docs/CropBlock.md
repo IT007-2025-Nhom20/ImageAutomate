@@ -1,7 +1,7 @@
 # FR-CRP-001: Crop Image Block
 
 ## Description
-Block shall crop images to a specified rectangle or region using ImageSharp. Supports absolute pixel cropping, relative percentage-based cropping, and center/anchor-based cropping.
+Block shall crop images to a specified rectangle or region using ImageSharp. Supports absolute pixel cropping, center-based cropping and anchor-based cropping.
 
 ## Configuration Parameters
 
