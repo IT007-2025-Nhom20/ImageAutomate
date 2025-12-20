@@ -532,7 +532,7 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    subgraph Orchestrator [The Engine (Orchestrator)]
+    subgraph Orchestrator ["The Engine (Orchestrator)"]
         direction TB
         Lifecycle[("<b>Lifecycle Manager</b><br/>Graph Validation & Instantiation")]
         Scheduler[("<b>Scheduler</b><br/>DFS Optimization Strategy")]
@@ -541,7 +541,7 @@ flowchart LR
         Lifecycle --> Scheduler
     end
 
-    subgraph Storage [The Warehouse (Producer-Centric)]
+    subgraph Storage ["The Warehouse (Producer-Centric)"]
         direction TB
         Buffer[("<b>Immutable Buffer</b><br/>Dict&lt;Socket, List&lt;WorkItem&gt;&gt;")]
         ConsCounter[("<b>Consumer Counter</b><br/>Atomic Int32 (Out-Degree)")]
@@ -553,7 +553,7 @@ flowchart LR
         JITLogic -- "Remaining == 0" --> Move["<b>Reference Handover</b><br/>(Ownership Transfer)"]
     end
 
-    subgraph Synchronization [The Barrier (Consumer-Centric)]
+    subgraph Synchronization ["The Barrier (Consumer-Centric)"]
         direction TB
         DepCounter[("<b>Dependency Counter</b><br/>Atomic Int32 (In-Degree)")]
         EnqFlag[("<b>Enqueue Flag</b><br/>Atomic CAS (1 bit)")]
@@ -562,7 +562,7 @@ flowchart LR
         EnqFlag -- "CompareExchange(0,1)" --> Signal["Signal Ready"]
     end
 
-    subgraph Execution [Worker Environment]
+    subgraph Execution ["Worker Environment"]
         Thread[".NET ThreadPool Worker"]
         WorkItem["<b>WorkItem</b><br/>Image&lt;TPixel&gt; + Metadata"]
     end
