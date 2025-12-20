@@ -106,6 +106,7 @@ internal sealed class Warehouse
             );
 
             // Clear internal storage (allow GC)
+            //!!!!! VERY IMPORTANT: NEVER FORGET TO LOCK WHEN TOUCHING _inventory !!!!!
             lock (_lock)
             {
                 _inventory = null;
