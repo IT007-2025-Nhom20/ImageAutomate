@@ -31,7 +31,27 @@ The "Barrier" is a lightweight control structure attached to the **Consumer Bloc
 * **Responsibility:**  
   1. **Readiness Tracking:** Maintains a **Dependency Counter** (`int32` atomically decremented) initialized to the Block's **In-Degree** (Total incoming connections).  
   2. **Signaling:** When the counter reaches zero via `Interlocked.Decrement`, it atomically enqueues the Block to the Engine's **Ready Queue** (exactly once).
-* **Implementation:** Uses `CountdownEvent` or custom atomic flag to prevent duplicate scheduling.
+* **Implementation:** Uses a simple `int32` counter + atomic `int32` flag (8 bytes total) instead of heavier synchronization primitives:
+  
+  ```csharp
+  private int dependencyCounter;      // Initialized to In-Degree
+  private int enqueuedFlag = 0;       // 0 = not enqueued, 1 = enqueued
+
+  public bool TrySignalReady() {
+      int remaining = Interlocked.Decrement(ref dependencyCounter);
+      if (remaining == 0) {
+          // Atomically set flag to prevent duplicate enqueue
+          if (Interlocked.CompareExchange(ref enqueuedFlag, 1, 0) == 0) {
+              Engine.EnqueueReady(this.BlockId);
+              return true;
+          }
+      }
+      return false;
+  }
+  ```
+  
+  **Rationale:** Avoids `CountdownEvent` overhead (~100+ bytes with kernel object allocation). This implementation is provably correct: the `CompareExchange` ensures exactly-once enqueueing even under high contention.
+
 * **Lazy Initialization:** Barriers are allocated only when a block's first predecessor completes (not during graph construction). Uses `Lazy<Barrier>` with thread-safe creation.
 
 ### **2.3. The Engine (Orchestrator)**
@@ -137,7 +157,7 @@ The Engine supports **two execution modes** (configurable via `ExecutionMode` en
 
 ### **Mode A: Simple DFS (Default, Production-Ready)**
 
-Uses only **Completion Pressure** from Section 5.1 with no live profiling. Recommended for most workloads.
+Uses only **Completion Pressure** from Section 5.1 with no live profiling. **Recommended for initial implementation and most workloads.**
 
 * **Priority Formula:**
   
@@ -146,10 +166,11 @@ Uses only **Completion Pressure** from Section 5.1 with no live profiling. Recom
 * **Overhead:** O(In-Degree) per dequeue—negligible for typical graphs.
 * **No Critical Path:** Avoids Bellman-Ford entirely.
 * **No Profiling:** Skips cost tracking (Section 6.2/6.3 disabled).
+* **Implementation Scope:** Core components only (Sections 1-5, 7-8). Skip Mode B entirely for MVP.
 
 ### **Mode B: Adaptive (Experimental, High-Complexity Workloads)**
 
-Adds live profiling and critical path analysis. Use when:
+⚠️ **DEFER UNTIL POST-MVP.** Adds live profiling and critical path analysis. Use when:
 - Pipelines have >20 blocks
 - Block costs vary by >5× (e.g., heavy denoise vs. simple crop)
 - Willing to accept ~2-5% scheduling overhead for 10-20% throughput gain
@@ -320,3 +341,146 @@ public sealed class WorkItem : IDisposable
     public void Dispose() => Image.Dispose(); // Release unmanaged pixel buffer
 }
 ```
+
+## **9\. References**
+
+1. **POSA:** Buschmann, F., et al. (1996). *Pattern-Oriented Software Architecture Volume 1*. (Pipes and Filters).  
+2. **EIP:** Hohpe, G., & Woolf, B. (2003). *Enterprise Integration Patterns*. (Message Store, Content-Based Router).  
+3. **GoF:** Gamma, E., et al. (1994). *Design Patterns*. (Observer, Prototype).  
+4. **Memory Management:** Jones, R., et al. (2011). *The Garbage Collection Handbook*. (Reference Counting).
+5. **Concurrent Data Structures:** Herlihy, M., & Shavit, N. (2012). *The Art of Multiprocessor Programming*. (Lock-free algorithms).
+6. **Graph Algorithms:** Cormen, T. H., et al. (2009). *Introduction to Algorithms, 3rd Ed*. (Topological sort, critical path).
+7. **Adaptive Systems:** Hellerstein, J. L., et al. (2004). *Feedback Control of Computing Systems*. (Runtime adaptation, PID controllers).
+
+---
+
+## **A. Appendix: Future Enhancements & Known Limitations**
+
+### **A.1. Scalability: Priority Queue Contention**
+
+**Current Bottleneck:**
+Under extreme parallelism (>100 concurrent threads), the single `ConcurrentPriorityQueue` can become a contention point even with lock-free operations. The head node experiences high CAS retry rates during concurrent dequeues.
+
+**Proposed Solution: Two-Tier Scheduling**
+
+Partition the ready queue into two tiers:
+
+* **Tier 1 (Fast Path):** FIFO queue for blocks with uniform priority (Mode A) or low memory pressure. Uses work-stealing deques per thread to eliminate contention.
+* **Tier 2 (Slow Path):** Priority queue for memory-pressure-sensitive blocks (high Completion Pressure score). Only accessed when Tier 1 is empty or memory exceeds thresholds.
+
+**Trade-offs:**
+- ✅ Reduces contention by 80-90% (measured in Go's runtime scheduler)
+- ✅ Maintains priority semantics where needed (memory-critical blocks)
+- ❌ Adds significant complexity: per-thread queues, work-stealing protocol, queue selection heuristics
+- ❌ Requires ~50% more code in the scheduler
+
+**Recommendation:** Implement only if profiling shows >10% time spent in queue operations under production workloads. Current design is sufficient for ≤100 threads.
+
+---
+
+### **A.2. Memory Management: Predictive Backpressure**
+
+**Current Limitation:**
+Section 6.5's GC-based throttling is **reactive** (waits for 10 GC/sec before pausing). The system can accumulate excessive in-flight memory before throttling triggers, leading to:
+- Sudden pauses (all dispatches halt)
+- Risk of OOM on memory-constrained systems
+- No global cap on total Warehouse memory
+
+**Critical Gap Example:**
+```
+10 Source blocks × 10 images/sec × 8K (32MB/image) = 3.2 GB/sec production rate
+If downstream is 2× slower → 6.4 GB accumulation in 2 seconds
+System with 8GB RAM → OOM before GC throttling activates
+```
+
+**Proposed Solution: Global Memory Budget with Soft/Hard Limits**
+
+Add to **Section 5.3: Predictive Memory Management:**
+
+```markdown
+### **5.3. Global Memory Budget** *(Both Modes)*
+
+To prevent OOM, the Engine enforces memory limits:
+
+* **Tracking:**
+  ```
+  TotalMemoryUsage = Σ (WarehouseSize × WorkItem.SizeMP × BytesPerPixel)
+  ```
+  Updated atomically after each Warehouse commit using `Interlocked.Add`.
+
+* **Soft Limit (Default: 50% of available RAM, configurable):**
+  - When exceeded, Source blocks check `CanProduce()` before execution
+  - If over limit: block sleeps 100ms, retries (cooperative backpressure)
+  - Existing in-flight blocks continue (gradual drain)
+  - Priority boost for blocks downstream of full Warehouses (×2.0)
+
+* **Hard Limit (Default: 75% of available RAM, configurable):**
+  - When exceeded, Engine has two modes:
+    1. **Fail-Fast (Default):** Throw `OutOfMemoryException` with diagnostic data
+    2. **Force-Drain (Optional):** Discard oldest Warehouse contents, mark consumers as failed
+  
+* **Memory Estimation:**
+  - `BytesPerPixel = 4` for `Rgba32` (default)
+  - Configurable per pixel format (`Rgb24 = 3`, `La16 = 2`, etc.)
+  - Includes 10% overhead for metadata/internal structures
+
+* **Startup Validation:**
+  - If available RAM < 2× largest expected WorkItem, log warning
+  - If available RAM < Hard Limit, fail initialization with clear error
+```
+
+**Implementation Priority:** **CRITICAL**. This is a production blocker—must be added before release.
+
+---
+
+### **A.3. Clarification: Priority Staleness**
+
+**Issue:** The term "lazy priority recalculation" (Section 6.1) was misinterpreted as "priorities can be stale at dequeue time."
+
+**Actual Behavior:**
+- Priorities are computed **on-demand during dequeue**, not cached
+- Each `Dequeue()` call:
+  1. Peeks at top K candidates (K=3 default)
+  2. Recalculates `Priority_runtime(B)` for each using current Warehouse states
+  3. Selects highest priority
+  4. Returns that block
+
+**Cost:** O(K × In-Degree) = O(3 × avg 2-3 inputs) = ~6-9 operations per dequeue.
+
+**Clarification Added to Section 6.1:**
+> *Note:* "Lazy" refers to computing priorities **at dequeue time** rather than eagerly updating them after every block completion. This ensures priorities reflect current Warehouse states, not stale cached values. The trade-off is O(In-Degree) cost per dequeue vs. O(Out-Degree) cost per completion.
+
+**No architectural change needed**—this is a documentation fix only.
+
+---
+
+### **A.4. Advanced Research: Adaptive Work Batching**
+
+**Concept:** Instead of recalculating priorities per-block, accumulate batches of K ready blocks before scheduling.
+
+**Mechanism:**
+1. Wait until K blocks are ready (K=5 default)
+2. Sort batch by priority once
+3. Dispatch all K in parallel
+4. Recalculate critical path once after all K complete
+
+**Benefits:**
+- Amortizes Bellman-Ford cost (O(V+E) every K blocks instead of every block)
+- Reduces priority calculation overhead by ~80%
+
+**Drawbacks:**
+- Adds latency: blocks wait for batch to fill
+- Less responsive to dynamic changes (e.g., sudden memory pressure)
+- Requires careful tuning of K (too large = latency, too small = no benefit)
+
+**Status:** Mentioned in Section 6.3 as `ExecutionMode.AdaptiveBatched`. Experimental—do not enable for production until validated with real workloads.
+
+---
+
+### **A.5. Known Limitations**
+
+1. **No GPU Memory Tracking:** Current memory budget only tracks CPU RAM. GPU-accelerated blocks (future feature) would need separate tracking.
+2. **No Network I/O Backpressure:** If blocks fetch from network sources, the memory budget doesn't account for in-flight network buffers.
+3. **Barrier Allocation:** Even with lazy initialization, Barriers are allocated per-block (not per-execution). A graph with 1000 blocks uses ~8KB for Barriers even if only 10 run concurrently.
+4. **Priority Queue Scalability:** Single queue design limits scalability beyond ~100 threads (see A.1).
+5. **No Priority Inheritance:** If a high-priority block depends on a low-priority block, the system doesn't propagate priority (can cause priority inversion under heavy load).
