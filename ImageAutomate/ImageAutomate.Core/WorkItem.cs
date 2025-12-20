@@ -29,6 +29,10 @@ public sealed class WorkItem(Image image, IImmutableDictionary<string, object>? 
         Image.Dispose();
     }
 
+    /// <summary>
+    /// Creates a deep clone of this work item, including a cloned image.
+    /// </summary>
+    /// <returns>A deep-cloned instance of this WorkItem</returns>
     public object Clone()
     {
         return new WorkItem(Image.Clone(x => { }), Metadata);
@@ -62,6 +66,10 @@ public sealed class BatchWorkItem(IEnumerable<Image> images, IImmutableDictionar
         }
     }
 
+    /// <summary>
+    /// Creates a deep clone of this batch work item, including cloned images.
+    /// </summary>
+    /// <returns>A deep-cloned instance of this BatchWorkItem</returns>
     public object Clone()
     {
         var clonedImages = Images.Select(img => img.Clone(x => { })).ToList();
