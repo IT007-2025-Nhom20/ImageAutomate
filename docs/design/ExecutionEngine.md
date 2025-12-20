@@ -21,6 +21,7 @@ The "Warehouse" is a storage component attached to the **Output Port** of a Prod
   2. **Inventory Tracking:** Maintains a **Consumer Counter** (`int32` atomically decremented) initialized to the Output Socket's **Out-Degree** (number of downstream links).  
   3. **Distribution:** Serves data to consumers upon request, implementing JIT Cloning logic.
 * **Thread Safety:** Counter updates use `Interlocked.Decrement`. Data reads are lock-free (immutable collection).
+* **Lazy Initialization:** Warehouses are allocated on-demand when a block first produces output (not during graph construction).
 
 ### **2.2. The Dependency Barrier (Control Gate)**
 
@@ -31,6 +32,7 @@ The "Barrier" is a lightweight control structure attached to the **Consumer Bloc
   1. **Readiness Tracking:** Maintains a **Dependency Counter** (`int32` atomically decremented) initialized to the Block's **In-Degree** (Total incoming connections).  
   2. **Signaling:** When the counter reaches zero via `Interlocked.Decrement`, it atomically enqueues the Block to the Engine's **Ready Queue** (exactly once).
 * **Implementation:** Uses `CountdownEvent` or custom atomic flag to prevent duplicate scheduling.
+* **Lazy Initialization:** Barriers are allocated only when a block's first predecessor completes (not during graph construction). Uses `Lazy<Barrier>` with thread-safe creation.
 
 ### **2.3. The Engine (Orchestrator)**
 
@@ -57,10 +59,24 @@ Synchronization is split between Data Availability (Producer) and Dependency Res
 To optimize memory usage, cloning is deferred until the exact moment of dispatch (Pull-based).
 
 * **Logic:** When a Consumer Block is dispatched, it requests inputs from the upstream Warehouse.  
-* **Check:** The Warehouse atomically reads its **Consumer Counter** using `Interlocked.CompareExchange`.  
-  * **Case A (Counter > 1):** Other consumers are still waiting. The Warehouse creates a **Defensive Clone** via `WorkItem.Clone()` (deep copy of pixel data). The Counter is decremented atomically.  
-  * **Case B (Counter == 1):** This is the last consumer. The Warehouse transfers the **Original Reference** (no copy, C# reference semantics). The Counter becomes 0, and the internal buffer is marked for GC (no explicit disposal needed for managed resources).
-* **C# Constraint:** `WorkItem` must implement `ICloneable` or provide `Clone()` method. Original objects remain immutable post-commit to avoid defensive copies.
+* **Check:** The Warehouse uses `Interlocked.Decrement` to atomically decrement its **Consumer Counter**.  
+  * **Case A (Counter after decrement ≥ 1):** Other consumers are still waiting. The Warehouse creates a **Defensive Clone** via `workItem.Image.Clone()` (SixLabors.ImageSharp's deep copy). Returns the clone.
+  * **Case B (Counter after decrement == 0):** This is the last consumer. The Warehouse transfers the **Original Reference** (ownership transfer). The internal buffer is cleared.
+* **C# Constraint:** `WorkItem` wraps `Image<TPixel>` from SixLabors.ImageSharp. When cloning, use `image.Clone()`. When transferring (Case B), the original `WorkItem` is moved.
+* **Disposal Semantics:** 
+  - **Consumer Responsibility:** After a block finishes execution, the Engine **must** call `workItem.Dispose()` on all consumed inputs (Section 5.2). This disposes the underlying `Image<TPixel>`.
+  - **Warehouse Cleanup:** Once Counter reaches 0, the Warehouse clears its internal reference (no explicit disposal—GC handles it if no transfer occurred).
+
+* **Race Condition Prevention:** 
+  ```csharp
+  int remaining = Interlocked.Decrement(ref consumerCounter);
+  if (remaining == 0) {
+      return MoveOriginal(); // Last consumer
+  } else {
+      return CreateClone();  // Still has consumers
+  }
+  ```
+  No CAS loop needed—single `Decrement` is atomic and sufficient.
 
 ## **4\. Execution Lifecycle**
 
@@ -73,10 +89,12 @@ To optimize memory usage, cloning is deferred until the exact moment of dispatch
 
 ### **Phase 2: Initialization**
 
-* **State Construction:** Warehouses are created for every Output Socket; Barriers are created for every Block.  
+* **State Construction:** 
+  - **Barriers:** Created lazily via `ConcurrentDictionary<BlockId, Lazy<Barrier>>`.
+  - **Warehouses:** Created on-demand when blocks first produce output.
 * **Counter Setup:**  
-  * Warehouse Counters = Out-Degree (Fan-Out) - initialized atomically.  
-  * Barrier Counters = In-Degree (Fan-In) - initialized atomically.
+  * Warehouse Counters = Out-Degree (Fan-Out) - initialized when warehouse is first created.
+  * Barrier Counters = In-Degree (Fan-In) - initialized when barrier is first accessed.
 * **Ready Queue Bootstrap:** All source blocks (In-Degree == 0) are enqueued immediately.
 
 ### **Phase 3: Runtime Loop (Event-Driven)**
@@ -106,14 +124,39 @@ Since Warehouses hold data until *all* consumers have read it, "partial consumpt
 
 ### **5.2. Deterministic Disposal**
 
-* **Warehouse Cleanup:** Occurs automatically when the last consumer reads the data (Counter reaches 0).  
-* **Input Disposal:** Once a consumer block finishes execution, its input WorkItems (which were either clones or moved originals) are disposed immediately by the Engine.
+* **Warehouse Cleanup:** Occurs automatically when the last consumer reads the data (Counter reaches 0). Internal reference is nulled (GC eligible).
+* **Input Disposal:** Once a consumer block finishes execution, the Engine immediately calls `workItem.Dispose()` on all input WorkItems (whether clones or moved originals). This disposes the underlying `Image<TPixel>` objects.
+* **Poisoned Blocks:** If a block is marked "Poisoned" (downstream of a failure), the Engine:
+  1. Atomically decrements upstream Warehouse counters for that block's inputs (as if it consumed them).
+  2. Does NOT execute the block (no actual data consumption).
+  3. This ensures Warehouses are properly cleaned up even when consumers are skipped.
 
 ## **6\. Optimization Strategy: Runtime Adaptation**
 
-Since the execution order emerges dynamically from data dependencies (via atomic barriers), the Engine cannot pre-compile a fixed execution plan. Instead, it employs **Adaptive Runtime Optimization** based on live profiling.
+The Engine supports **two execution modes** (configurable via `ExecutionMode` enum):
 
-### **6.1. Dynamic Priority Adjustment**
+### **Mode A: Simple DFS (Default, Production-Ready)**
+
+Uses only **Completion Pressure** from Section 5.1 with no live profiling. Recommended for most workloads.
+
+* **Priority Formula:**
+  
+  $$Priority(B) = \sum_{P \in Predecessors(B)} \frac{WarehouseSize(P)}{RemainingConsumers(P)}$$
+
+* **Overhead:** O(In-Degree) per dequeue—negligible for typical graphs.
+* **No Critical Path:** Avoids Bellman-Ford entirely.
+* **No Profiling:** Skips cost tracking (Section 6.2/6.3 disabled).
+
+### **Mode B: Adaptive (Experimental, High-Complexity Workloads)**
+
+Adds live profiling and critical path analysis. Use when:
+- Pipelines have >20 blocks
+- Block costs vary by >5× (e.g., heavy denoise vs. simple crop)
+- Willing to accept ~2-5% scheduling overhead for 10-20% throughput gain
+
+---
+
+### **6.1. Dynamic Priority Adjustment** *(Mode B Only)*
 
 The Scheduler maintains a **Live Priority Map** updated after each block execution.
 
@@ -129,17 +172,19 @@ The Scheduler maintains a **Live Priority Map** updated after each block executi
   
   where:
   - **Completion Pressure** (from Section 5.1): $\sum_{P \in Predecessors(B)} \frac{WarehouseSize(P)}{RemainingConsumers(P)}$
-  - **Critical Path Boost:** $\alpha \times EstimatedCost(B)$ if B is on the current critical path (α=1.5)
+  - **Critical Path Boost:** $\alpha \times \hat{Cost}(B)$ if B is on the current critical path (α=1.5)
 
-* **Update Frequency:** Priorities recalculated lazily when a block completes (O(Out-Degree) cost).
+* **Update Frequency:** Priorities recalculated lazily when a block is dequeued (O(In-Degree + 1) cost).
 
-### **6.2. Incremental Cost Profiling**
+### **6.2. Incremental Cost Profiling** *(Mode B Only)*
 
 Since execution is non-deterministic, the Engine maintains a **Rolling Statistics Window** per block type.
 
 * **Metric Collection:** After each block execution, record:
   
   $$Sample_i = \left( T_{exec,i}, PixelCount_i, \frac{T_{exec,i}}{PixelCount_i} \right)$$
+  
+  where $PixelCount_i$ is stored in `WorkItem.SizeMP` (megapixels, precomputed: `Width × Height / 1,000,000`)
 
 * **Cost Estimate (Exponential Moving Average):**
   
@@ -151,21 +196,41 @@ Since execution is non-deterministic, the Engine maintains a **Rolling Statistic
 
 * **Persistence:** Statistics serialized to `~/.cache/pipeline/profile.db` (SQLite) and restored on next startup.
 
-### **6.3. Critical Path Identification (Live)**
+### **6.3. Critical Path Identification (Live)** *(Mode B Only)*
 
-Unlike static analysis, the critical path is recomputed **after each block completion** to reflect actual runtime costs.
+The critical path is recomputed **conditionally** to avoid excessive overhead:
 
-* **Algorithm:** Modified Bellman-Ford with negative edge weights:
-  
-  $$Weight(A \to B) = -\hat{Cost}(A)$$
-  
-  Longest path from sources to sinks = critical path.
+#### **Simple Heuristic (Default):**
 
-* **Optimization:** Only recompute when a block on the *previous* critical path completes (avoids redundant work).
+Recompute when ANY of:
+1. **Performance Deviation:** Live execution time deviates >20% (configurable) from $\hat{Cost}(B) \times WorkItem.SizeMP$ for blocks on the *previous* critical path.
+2. **Sampling Interval:** Every 10 blocks (configurable) complete.
+3. **Time-Based:** Every 5 seconds (configurable) of wall-clock time.
 
-* **Priority Boost:** Blocks on the critical path receive multiplicative boost (×1.5) to prevent late-stage bottlenecks.
+**Algorithm:** Modified Bellman-Ford with negative edge weights:
 
-### **6.4. Calibration Mode (First-Run Only)**
+$$Weight(A \to B) = -\hat{Cost}(A) \times AvgWorkItemSize(A)$$
+
+Longest path from sources to sinks = critical path. Complexity: O(V + E) per recomputation.
+
+**Priority Boost:** Blocks on the critical path receive multiplicative boost (×1.5) to prevent late-stage bottlenecks.
+
+#### **Advanced Strategy (Optional, Experimental):**
+
+**Batch Scheduling with Grouped Recomputation:**
+
+* **Mechanism:** Instead of dispatching blocks immediately when ready, accumulate a "batch" of K ready blocks (K=5 default, configurable).
+* **Dispatch:** Sort batch by priority, dispatch all K in parallel.
+* **Recomputation:** Recalculate critical path **once** after all K complete (amortizes Bellman-Ford cost).
+* **Trade-off:** 
+  - ✅ Reduces scheduling overhead by ~80% (1 recomputation per K blocks instead of K).
+  - ❌ Introduces latency: blocks wait for batch to fill.
+  - ❌ Less responsive to sudden cost changes.
+* **Best For:** High-throughput batch processing (e.g., 1000+ images).
+
+**Implementation Note:** Enabled via `ExecutionMode.AdaptiveBatched` (distinct from `ExecutionMode.Adaptive`).
+
+### **6.4. Calibration Mode (First-Run Only)** *(Mode B Only)*
 
 On first startup (no cached profiles), the Engine runs a **Synthetic Benchmark Suite**:
 
@@ -183,7 +248,7 @@ On first startup (no cached profiles), the Engine runs a **Synthetic Benchmark S
   - **Transforms (FFT, etc.):** 15.0 ms/MP
   - **I/O Operations:** 50.0 ms/MP
 
-### **6.5. Thermal & Load Adaptation**
+### **6.5. Thermal & Load Adaptation** *(Both Modes)*
 
 The Engine monitors system conditions and adjusts parallelism:
 
@@ -199,8 +264,9 @@ The Engine monitors system conditions and adjusts parallelism:
 
 * **Block Failure:** If a block throws an exception, the Engine:
   1. Marks all transitive downstream blocks as "Poisoned" (skipped execution).
-  2. Collects the exception into an `AggregateException`.
-  3. Allows independent pipeline branches to continue (partial failure tolerance).
+  2. **Warehouse Counter Cleanup:** For each poisoned block, atomically decrements its upstream Warehouse counters (as if it consumed the data). This ensures Warehouses are released even when consumers don't run.
+  3. Collects the exception into an `AggregateException`.
+  4. Allows independent pipeline branches to continue (partial failure tolerance).
 * **Fatal Errors:** Out-of-memory or stack overflow abort the entire pipeline immediately.
 
 ### **7.2. Cancellation Support**
@@ -213,20 +279,44 @@ The Engine monitors system conditions and adjusts parallelism:
 ### **8.1. Data Structures**
 
 * **Ready Queue:** `ConcurrentPriorityQueue<BlockId, float>` (custom implementation using concurrent skip list or .NET 9+ built-in).
-* **Warehouse Storage:** `ImmutableList<WorkItem>` for thread safety.
-* **Barrier Counter:** `int` with `Interlocked` operations (no locks).
+  - **Lock-Free Guarantee:** Operations use `Interlocked` for node updates. Enqueue/Dequeue are wait-free (no spinlocks).
+* **Warehouse Storage:** `ImmutableList<WorkItem>` for thread safety (lock-free reads).
+* **Barrier Counter:** `int` with `Interlocked.Decrement` operations (hardware CAS, no locks).
+* **Lazy Components:** `ConcurrentDictionary<BlockId, Lazy<T>>` for on-demand initialization (lock-free with `GetOrAdd`).
 
 ### **8.2. Threading Model**
 
-* **Execution:** Blocks run on .NET `ThreadPool.QueueUserWorkItem` (default) or custom `TaskScheduler` for priority control.
+* **Execution:** 
+  - **Short Tasks (<1000ms estimated):** Use `ThreadPool.QueueUserWorkItem` (default).
+  - **Long Tasks (≥1000ms estimated):** Spawn with `TaskCreationOptions.LongRunning` to avoid ThreadPool starvation. Threshold configurable via `LongRunningThresholdMs`.
+  - **Estimation:** `EstimatedDuration = \hat{Cost}(B) \times WorkItem.SizeMP` (in milliseconds).
 * **Engine Thread:** Single dedicated thread for coordination (lightweight, mostly sleep/wake via semaphore).
 
-## **9\. References**
+### **8.3. Lock-Free Guarantees**
 
-1. **POSA:** Buschmann, F., et al. (1996). *Pattern-Oriented Software Architecture Volume 1*. (Pipes and Filters).  
-2. **EIP:** Hohpe, G., & Woolf, B. (2003). *Enterprise Integration Patterns*. (Message Store, Content-Based Router).  
-3. **GoF:** Gamma, E., et al. (1994). *Design Patterns*. (Observer, Prototype).  
-4. **Memory Management:** Jones, R., et al. (2011). *The Garbage Collection Handbook*. (Reference Counting).
-5. **Concurrent Data Structures:** Herlihy, M., & Shavit, N. (2012). *The Art of Multiprocessor Programming*. (Lock-free algorithms).
-6. **Graph Algorithms:** Cormen, T. H., et al. (2009). *Introduction to Algorithms, 3rd Ed*. (Topological sort, critical path).
-7. **Adaptive Systems:** Hellerstein, J. L., et al. (2004). *Feedback Control of Computing Systems*. (Runtime adaptation, PID controllers).
+The system is **algorithmically lock-free** with the following caveats:
+
+* **Surface Lock-Free:** No explicit `lock` statements or mutexes in the core execution path.
+* **Hardware Dependency:** Relies on x86/ARM64 atomic CAS instructions (`Interlocked` APIs). On exotic architectures without hardware atomics, .NET falls back to locks (transparent to user).
+* **Queue Implementation:** The `ConcurrentPriorityQueue` uses a lock-free skip list (based on Herlihy & Shavit's design). Individual node updates are atomic; iteration is not (uses snapshots).
+* **Progress Guarantee:** **Lock-freedom** (at least one thread makes progress), NOT **wait-freedom** (every thread makes progress). Starvation is theoretically possible under extreme contention but unlikely in practice.
+* **No CAS Loops:** Atomic counters use single `Decrement` calls (no retry logic). The value returned by `Decrement` is used for decision-making (Case A vs. Case B), avoiding race conditions.
+
+### **8.4. WorkItem Structure**
+
+```csharp
+public sealed class WorkItem : IDisposable
+{
+    public Image<Rgba32> Image { get; }       // SixLabors.ImageSharp
+    public float SizeMP { get; }              // Width × Height / 1,000,000
+    public IReadOnlyDictionary<string, object> Metadata { get; }
+
+    public WorkItem Clone() => new WorkItem(
+        Image.Clone(),  // Deep copy of pixel data
+        SizeMP,
+        Metadata        // Shallow copy (immutable)
+    );
+
+    public void Dispose() => Image.Dispose(); // Release unmanaged pixel buffer
+}
+```
