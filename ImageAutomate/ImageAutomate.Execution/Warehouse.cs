@@ -54,13 +54,35 @@ internal sealed class Warehouse
     }
 
     /// <summary>
+    /// Retrieves inputs for a consumer filtered by the specified sockets.
+    /// </summary>
+    /// <param name="sockets">A set of sockets to filter</param>
+    /// <returns>
+    /// Dictionary of socket to WorkItems. Items are cloned if other consumers remain,
+    /// or transferred if caller is the last consumer
+    /// </returns>
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> GetInventory(IEnumerable<Socket> sockets)
+        => GetInventoryCore(sockets);
+
+    /// <summary>
     /// Retrieves inputs for a consumer.
     /// </summary>
+    /// <returns>
+    /// Dictionary of socket to WorkItems. Items are cloned if other consumers remain,
+    /// or transferred if caller is the last consumer
+    /// </returns>
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> GetInventory()
+        => GetInventoryCore(null);
+
+    /// <summary>
+    /// Retrieves inputs for a consumer, optionally filtered by sockets.
+    /// </summary>
+    /// <param name="sockets">Optional set of sockets to filter. If null, all sockets are returned.</param>
     /// <returns>
     /// Dictionary of socket to work items. Items are cloned if other consumers remain,
     /// or transferred if caller is the last consumer.
     /// </returns>
-    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> GetInventory()
+    private Dictionary<Socket, IReadOnlyList<IBasicWorkItem>> GetInventoryCore(IEnumerable<Socket>? sockets = null)
     {
         if (_inventory == null)
             throw new InvalidOperationException("Warehouse has not been committed yet.");
@@ -71,10 +93,14 @@ internal sealed class Warehouse
         if (remainingConsumers < 0)
             throw new InvalidOperationException("Consumer count underflow. More consumers than expected.");
 
+        var filtered = sockets != null
+            ? _inventory.Where(kvp => sockets.Contains(kvp.Key))
+            : _inventory;
+
         if (remainingConsumers == 0)
         {
             // Last consumer: Transfer ownership
-            var result = _inventory.ToDictionary(
+            var result = filtered.ToDictionary(
                 kvp => kvp.Key,
                 kvp => (IReadOnlyList<IBasicWorkItem>)kvp.Value
             );
@@ -89,7 +115,7 @@ internal sealed class Warehouse
         }
         else
         {
-            var result = _inventory.ToDictionary(
+            var result = filtered.ToDictionary(
                 kvp => kvp.Key,
                 kvp => (IReadOnlyList<IBasicWorkItem>)kvp.Value
                     .Select(item => (IBasicWorkItem)item.Clone())
