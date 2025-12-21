@@ -150,7 +150,7 @@ internal sealed class Warehouse
     }
 
     /// <summary>
-    /// Decrements the consumer count without retrieving data (used for poisoned blocks cleanup).
+    /// Decrements the consumer count without retrieving data (used for blocked blocks cleanup).
     /// </summary>
     public void DecrementConsumerCount()
     {

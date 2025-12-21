@@ -61,7 +61,7 @@ The Engine functions as a **Process Manager**. It is responsible for:
 1. **Lifecycle Management:** Instantiating blocks, warehouses, and barriers.  
 2. **Topology Verification:** Static analysis of the DAG (Tarjan's algorithm for cycle detection).  
 3. **Task Scheduling:** Dispatching "Ready" blocks based on DFS optimization using a priority-ordered concurrent queue (`ConcurrentPriorityQueue<BlockId, Priority>`).
-4. **Error Propagation:** Capturing exceptions, marking downstream blocks as "poisoned", and aggregating failures.
+4. **Error Propagation:** Capturing exceptions, marking downstream blocks as "blocked", and aggregating failures.
 
 ## **3\. Interaction Patterns**
 
@@ -194,7 +194,7 @@ Since Warehouses hold data until *all* consumers have read it, "partial consumpt
 
 * **Warehouse Cleanup:** Occurs automatically when the last consumer reads the data (Counter reaches 0). Internal reference is nulled (GC eligible).
 * **Input Disposal:** Once a consumer block finishes execution, the Engine immediately calls `workItem.Dispose()` on all input WorkItems (whether clones or moved originals). This disposes the underlying `Image<TPixel>` objects.
-* **Poisoned Blocks:** If a block is marked "Poisoned" (downstream of a failure), the Engine:
+* **Blocked Blocks:** If a block is marked "Blocked" (downstream of a failure), the Engine:
   1. Atomically decrements upstream Warehouse counters for that block's inputs (as if it consumed them).
   2. Does NOT execute the block (no actual data consumption).
   3. This ensures Warehouses are properly cleaned up even when consumers are skipped.
@@ -402,8 +402,8 @@ The Engine monitors system conditions and adjusts parallelism:
 ### **7.1. Exception Propagation**
 
 * **Block Failure:** If a block throws an exception, the Engine:
-  1. Marks all transitive downstream blocks as "Poisoned" (skipped execution).
-  2. **Warehouse Counter Cleanup:** For each poisoned block, atomically decrements its upstream Warehouse counters (as if it consumed the data). This ensures Warehouses are released even when consumers don't run.
+  1. Marks all transitive downstream blocks as "Blocked" (skipped execution).
+  2. **Warehouse Counter Cleanup:** For each blocked block, atomically decrements its upstream Warehouse counters (as if it consumed the data). This ensures Warehouses are released even when consumers don't run.
   3. Collects the exception into an `AggregateException`.
   4. Allows independent pipeline branches to continue (partial failure tolerance).
 * **Fatal Errors:** Out-of-memory or stack overflow abort the entire pipeline immediately.
@@ -616,7 +616,7 @@ flowchart LR
         direction TB
         Lifecycle[("<b>Lifecycle Manager</b><br/>Graph Validation & Instantiation")]
         Scheduler[("<b>Scheduler</b><br/>DFS Optimization Strategy")]
-        ErrorHandler[("<b>Error Propagator</b><br/>Poisoning & Cancellation")]
+        ErrorHandler[("<b>Error Propagator</b><br/>Blocking & Cancellation")]
         
         Lifecycle --> Scheduler
     end

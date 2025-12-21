@@ -9,7 +9,7 @@ namespace ImageAutomate.Execution;
 /// - Ready → Running (when dequeued and execution starts)
 /// - Running → Completed (successful execution)
 /// - Running → Failed (execution threw exception)
-/// - Any → Poisoned (transitive propagation from failed upstream blocks)
+/// - Any → Blocked (transitive propagation from failed upstream blocks)
 /// - Any → Cancelled (user cancellation)
 /// </remarks>
 internal enum BlockExecutionState
@@ -43,7 +43,7 @@ internal enum BlockExecutionState
     /// <summary>
     /// Block is downstream of a failed block and will be skipped.
     /// </summary>
-    Poisoned,
+    Blocked,
 
     /// <summary>
     /// Block execution was cancelled by the user.
