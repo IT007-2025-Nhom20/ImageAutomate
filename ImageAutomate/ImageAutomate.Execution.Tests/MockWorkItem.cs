@@ -55,3 +55,17 @@ public class MockWorkItem : IWorkItem
         return new MockWorkItem(Id, Image, Metadata);
     }
 }
+
+public class MutableWorkItem : IBasicWorkItem, ICloneable
+{
+    public Guid Id { get; } = Guid.NewGuid();
+    public string Value { get; set; }
+    public float SizeMP => 0;
+
+    public IImmutableDictionary<string, object> Metadata => ImmutableDictionary<string, object>.Empty;
+
+    public MutableWorkItem(string value) { Value = value; }
+
+    public object Clone() => new MutableWorkItem(this.Value); // Deep clone behavior
+    public void Dispose() { }
+}

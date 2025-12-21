@@ -329,3 +329,126 @@ public class SpinlockSource : MockBlock, IShipmentSource
         return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>();
     }
 }
+
+public class SingleItemSource : MockBlock, IShipmentSource
+{
+    public int MaxShipmentSize { get; set; } = 10;
+    private bool _produced = false;
+
+    public SingleItemSource(string name) : base(name) 
+    {
+        Outputs = new List<Socket> { new Socket("Out", "Out") };
+    }
+
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    {
+        if (_produced) return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>> { { Outputs[0], new List<IBasicWorkItem>() } };
+        
+        _produced = true;
+        return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>> 
+        { 
+            { Outputs[0], new List<IBasicWorkItem> { new MutableWorkItem("Original") } } 
+        };
+    }
+}
+
+public class ModifierBlock : MockBlock
+{
+    private readonly string _newValue;
+    public ModifierBlock(string name, string newValue) : base(name) 
+    {
+            _newValue = newValue;
+            Inputs = new List<Socket> { new Socket("In", "In") };
+            Outputs = new List<Socket> { new Socket("Out", "Out") };
+    }
+
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    {
+        var list = new List<IBasicWorkItem>();
+        foreach(var item in inputs[Inputs[0]])
+        {
+            var mutable = (MutableWorkItem)item; // No clone here, we modify "in place" (which should be a clone from Warehouse)
+            mutable.Value = _newValue;
+            list.Add(mutable);
+        }
+        return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>> { { Outputs[0], list } };
+    }
+}
+
+public class InspectorBlock : MockBlock
+{
+    public List<IBasicWorkItem> InspectedItems { get; } = new List<IBasicWorkItem>();
+    public InspectorBlock(string name) : base(name) 
+    {
+            Inputs = new List<Socket> { new Socket("In", "In") };
+    }
+
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    {
+        if(inputs.TryGetValue(Inputs[0], out var list))
+        {
+            // Clone again to save state for assertion
+            foreach(var item in list) InspectedItems.Add((IBasicWorkItem)((ICloneable)item).Clone());
+        }
+        return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>();
+    }
+}
+
+public class SwitchBlock : MockBlock
+{
+    private readonly bool _out0;
+    private readonly bool _out1;
+
+    public SwitchBlock(string name, bool sendToOut0, bool sendToOut1) : base(name)
+    {
+        _out0 = sendToOut0;
+        _out1 = sendToOut1;
+        Inputs = new List<Socket> { new Socket("In", "In") };
+        Outputs = new List<Socket> { new Socket("Out0", "Out0"), new Socket("Out1", "Out1") };
+    }
+
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    {
+        var incoming = inputs[Inputs[0]];
+        var res = new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>();
+        
+        // Output 0
+        if (_out0) res[Outputs[0]] = CloneAll(incoming);
+        // Intentionally OMIT key for Output 1 if false, or send empty? 
+        // Engine spec says "ExportOutputs" takes dictionary. 
+        // If we omit the key, the Warehouse for that socket is not created/updated?
+        // Let's send EMPTY list to simulate "Filtered but Active"
+        else res[Outputs[1]] = new List<IBasicWorkItem>(); 
+
+        if (_out1 && !_out0) res[Outputs[1]] = CloneAll(incoming); // Simplified logic
+        
+        return res;
+    }
+
+    private List<IBasicWorkItem> CloneAll(IEnumerable<IBasicWorkItem> items)
+    {
+            return items.Select(x => (IBasicWorkItem)((ICloneable)x).Clone()).ToList();
+    }
+}
+
+public class CallbackBlock : MockBlock
+{
+    private readonly Func<IBasicWorkItem, IBasicWorkItem> _action;
+
+    public CallbackBlock(string name, Func<IBasicWorkItem, IBasicWorkItem> action) : base(name)
+    {
+        _action = action;
+        Inputs = new List<Socket> { new Socket("In", "In") };
+        Outputs = new List<Socket> { new Socket("Out", "Out") };
+    }
+
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    {
+        var outList = new List<IBasicWorkItem>();
+        foreach(var item in inputs[Inputs[0]])
+        {
+            outList.Add(_action(item));
+        }
+        return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>> { { Outputs[0], outList } };
+    }
+}
