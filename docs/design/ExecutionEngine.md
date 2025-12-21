@@ -196,6 +196,36 @@ Since Warehouses hold data until *all* consumers have read it, "partial consumpt
   2. Does NOT execute the block (no actual data consumption).
   3. This ensures Warehouses are properly cleaned up even when consumers are skipped.
 
+### **5.3. Global Memory Budget** *(Both Modes)*
+
+To prevent OOM, the Engine enforces memory limits:
+
+* **Tracking:**
+  ```
+  TotalMemoryUsage = Σ (WarehouseSize × WorkItem.SizeMP × BytesPerPixel)
+  ```
+  Updated atomically after each Warehouse commit using `Interlocked.Add`.
+
+* **Soft Limit (Default: 50% of available RAM, configurable):**
+  - When exceeded, Source blocks check `CanProduce()` before execution
+  - If over limit: block sleeps 100ms, retries (cooperative backpressure)
+  - Existing in-flight blocks continue (gradual drain)
+  - Priority boost for blocks downstream of full Warehouses (×2.0)
+
+* **Hard Limit (Default: 75% of available RAM, configurable):**
+  - When exceeded, Engine has two modes:
+    1. **Fail-Fast (Default):** Throw `OutOfMemoryException` with diagnostic data
+    2. **Force-Drain (Optional):** Discard oldest Warehouse contents, mark consumers as failed
+  
+* **Memory Estimation:**
+  - `BytesPerPixel = 4` for `Rgba32` (default)
+  - Configurable per pixel format (`Rgb24 = 3`, `La16 = 2`, etc.)
+  - Includes 10% overhead for metadata/internal structures
+
+* **Startup Validation:**
+  - If available RAM < 2× largest expected WorkItem, log warning
+  - If available RAM < Hard Limit, fail initialization with clear error
+
 ## **6\. Optimization Strategy: Runtime Adaptation**
 
 The Engine supports **two execution modes** (configurable via `ExecutionMode` enum):
@@ -261,6 +291,8 @@ The Scheduler maintains a **Live Priority Map** updated after each block executi
   - **Critical Path Boost:** $\alpha \times \hat{Cost}(B)$ if B is on the current critical path (α=1.5)
 
 * **Update Frequency:** Priorities recalculated lazily when a block is dequeued (O(In-Degree + 1) cost).
+
+> *Note:* "Lazy" refers to computing priorities **at dequeue time** rather than eagerly updating them after every block completion. This ensures priorities reflect current Warehouse states, not stale cached values. The trade-off is O(In-Degree) cost per dequeue vs. O(Out-Degree) cost per completion.
 
 ### **6.2. Incremental Cost Profiling** *(Mode B Only)*
 
@@ -458,41 +490,7 @@ If downstream is 2× slower → 6.4 GB accumulation in 2 seconds
 System with 8GB RAM → OOM before GC throttling activates
 ```
 
-**Proposed Solution: Global Memory Budget with Soft/Hard Limits**
-
-Add to **Section 5.3: Predictive Memory Management:**
-
-```markdown
-### **5.3. Global Memory Budget** *(Both Modes)*
-
-To prevent OOM, the Engine enforces memory limits:
-
-* **Tracking:**
-  ```
-  TotalMemoryUsage = Σ (WarehouseSize × WorkItem.SizeMP × BytesPerPixel)
-  ```
-  Updated atomically after each Warehouse commit using `Interlocked.Add`.
-
-* **Soft Limit (Default: 50% of available RAM, configurable):**
-  - When exceeded, Source blocks check `CanProduce()` before execution
-  - If over limit: block sleeps 100ms, retries (cooperative backpressure)
-  - Existing in-flight blocks continue (gradual drain)
-  - Priority boost for blocks downstream of full Warehouses (×2.0)
-
-* **Hard Limit (Default: 75% of available RAM, configurable):**
-  - When exceeded, Engine has two modes:
-    1. **Fail-Fast (Default):** Throw `OutOfMemoryException` with diagnostic data
-    2. **Force-Drain (Optional):** Discard oldest Warehouse contents, mark consumers as failed
-  
-* **Memory Estimation:**
-  - `BytesPerPixel = 4` for `Rgba32` (default)
-  - Configurable per pixel format (`Rgb24 = 3`, `La16 = 2`, etc.)
-  - Includes 10% overhead for metadata/internal structures
-
-* **Startup Validation:**
-  - If available RAM < 2× largest expected WorkItem, log warning
-  - If available RAM < Hard Limit, fail initialization with clear error
-```
+**Proposed Solution: Global Memory Budget with Soft/Hard Limits** (Section 5.3)
 
 **Implementation Priority:** **CRITICAL**. This is a production blocker—must be added before release.
 
@@ -500,7 +498,7 @@ To prevent OOM, the Engine enforces memory limits:
 
 ### **A.3. Clarification: Priority Staleness**
 
-**Issue:** The term "lazy priority recalculation" (Section 6.1) was misinterpreted as "priorities can be stale at dequeue time."
+**Issue:** The term "lazy priority recalculation" (Section 6.1) could be misinterpreted as "priorities can be stale at dequeue time."
 
 **Actual Behavior:**
 - Priorities are computed **on-demand during dequeue**, not cached
@@ -512,8 +510,7 @@ To prevent OOM, the Engine enforces memory limits:
 
 **Cost:** O(K × In-Degree) = O(3 × avg 2-3 inputs) = ~6-9 operations per dequeue.
 
-**Clarification Added to Section 6.1:**
-> *Note:* "Lazy" refers to computing priorities **at dequeue time** rather than eagerly updating them after every block completion. This ensures priorities reflect current Warehouse states, not stale cached values. The trade-off is O(In-Degree) cost per dequeue vs. O(Out-Degree) cost per completion.
+**Clarification Added to Section 6.1.**
 
 **No architectural change needed**—this is a documentation fix only.
 
@@ -544,7 +541,7 @@ To prevent OOM, the Engine enforces memory limits:
 
 ### **A.5. Known Limitations**
 
-1. **No GPU Memory Tracking:** Current memory budget only tracks CPU RAM. GPU-accelerated blocks (future feature) would need separate tracking.
+1. **No GPU Memory Tracking:** Current memory budget only tracks CPU RAM. GPU-accelerated blocks (if implemented) would need separate tracking.
 2. **No Network I/O Backpressure:** If blocks fetch from network sources, the memory budget doesn't account for in-flight network buffers.
 3. **Barrier Allocation:** Even with lazy initialization, Barriers are allocated per-block (not per-execution). A graph with 1000 blocks uses ~8KB for Barriers even if only 10 run concurrently.
 4. **Priority Queue Scalability:** Single queue design limits scalability beyond ~100 threads (see A.1).
