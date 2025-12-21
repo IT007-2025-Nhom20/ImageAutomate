@@ -13,19 +13,19 @@ public enum ExecutionMode
 
     /// <summary>
     /// Adaptive scheduling with live cost profiling and critical path analysis.
-    /// Mode B - Experimental.
+    /// Experimental.
     /// </summary>
     /// <remarks>
     /// Throws NotImplementedException until implemented.
     /// </remarks>
-    Adaptive = 1,
+    // Adaptive = 1,
 
     /// <summary>
     /// Adaptive scheduling with batch-based critical path recomputation.
-    /// Mode B variant - Experimental.
+    /// Adaptive Mode variant - Experimental.
     /// </summary>
     /// <remarks
     /// Throws NotImplementedException until implemented.
     /// </remarks>
-    AdaptiveBatched = 2
+    // AdaptiveBatched = 2
 }
