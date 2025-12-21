@@ -7,7 +7,7 @@ using System.Collections.Immutable;
 
 namespace ImageAutomate.StandardBlocks;
 
-public class LoadBlock : IBlock
+public class LoadBlock : IBlock, IShipmentSource
 {
     #region Fields
 
@@ -21,6 +21,10 @@ public class LoadBlock : IBlock
 
     private int _width = 200;
     private int _height = 100;
+
+    // Shipment state
+    private List<string>? _cachedFilePaths;
+    private int _currentOffset = 0;
 
     #endregion
 
@@ -104,6 +108,12 @@ public class LoadBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Maximum number of images to load per execution (shipment size).
+    /// Set by the executor during initialization.
+    /// </summary>
+    public int MaxShipmentSize { get; set; } = 64;
+
     #endregion
 
     #region Socket
@@ -147,36 +157,45 @@ public class LoadBlock : IBlock
     private IEnumerable<IBasicWorkItem> LoadWorkItems()
     {
         if (string.IsNullOrWhiteSpace(SourcePath))
-            throw new InvalidOperationException("LoadBlock: SourcePath is required when LoadFromUrl = false.");
+            throw new InvalidOperationException("LoadBlock: SourcePath is required.");
 
-        return LoadImageFromDirectory();
-    }
-
-    private IEnumerable<IBasicWorkItem> LoadImageFromDirectory()
-    {
-        if (string.IsNullOrWhiteSpace(SourcePath))
-            throw new InvalidOperationException("LoadBlock: SourcePath is required");
-        if (!Directory.Exists(SourcePath))
-            throw new DirectoryNotFoundException("LoadBlock: directory not found");
-
-        var files = Directory.GetFiles(SourcePath)
-            .Where(IsValidImageFile)
-            //* Is ordering necessary? 
-            // .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        foreach (var file in files)
+        // Initialize file list on first execution
+        if (_cachedFilePaths == null)
         {
+            if (!Directory.Exists(SourcePath))
+                throw new DirectoryNotFoundException($"LoadBlock: directory not found: {SourcePath}");
+
+            _cachedFilePaths = Directory.GetFiles(SourcePath)
+                .Where(IsValidImageFile)
+                .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            
+            _currentOffset = 0;
+        }
+
+        // Load next shipment batch
+        int remaining = _cachedFilePaths.Count - _currentOffset;
+        int batchSize = Math.Min(MaxShipmentSize, remaining);
+
+        for (int i = 0; i < batchSize; i++)
+        {
+            string file = _cachedFilePaths[_currentOffset + i];
+            
             Image image = LoadImageFile(file);
             var builder = ImmutableDictionary.CreateBuilder<string, object>();
             builder.Add("BatchFolder", SourcePath);
             builder.Add("FileName", Path.GetFileName(file));
             builder.Add("FullPath", file);
             builder.Add("Format", image.Metadata.DecodedImageFormat?.Name ?? "Unknown");
+            builder.Add("ShipmentOffset", _currentOffset);
+            builder.Add("ShipmentIndex", i);
             var metadata = builder.ToImmutable();
             WorkItem wi = new(image, metadata);
             yield return wi;
         }
+
+        // Advance offset for next shipment
+        _currentOffset += batchSize;
     }
 
     private bool IsValidImageFile(string path)
