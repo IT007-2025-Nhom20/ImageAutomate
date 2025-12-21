@@ -22,6 +22,10 @@ public class ExecutorConfiguration
     /// If no progress occurs within this duration, a PipelineDeadlockException is thrown.
     /// Default: 30 seconds.
     /// </summary>
+    /// <remarks>
+    /// With a batch-based execution model, 30 seconds was decided to be a reasonable default.
+    /// However, a more robust deadlock detection mechanism should be implemented in the future.
+    /// </remarks>
     public TimeSpan WatchdogTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
