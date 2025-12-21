@@ -642,7 +642,8 @@ public class GraphExecutorTests
     public async Task Cancellation_StopsExecution()
     {
         // Use SpinlockSource that only stops when cancelled
-        var source = new SpinlockSource("SpinlockSource");
+        var cts = new CancellationTokenSource();
+        var source = new SpinlockSource("SpinlockSource") { CancellationToken = cts.Token };
         var sink = new MockSink("Sink");
 
         _graph.AddBlock(source);
@@ -650,7 +651,6 @@ public class GraphExecutorTests
 
         _graph.Connect(source, source.Outputs[0], sink, sink.Inputs[0]);
 
-        var cts = new CancellationTokenSource();
         var config = new ExecutorConfiguration();
 
         // Cancel immediately to ensure cancellation is detected
