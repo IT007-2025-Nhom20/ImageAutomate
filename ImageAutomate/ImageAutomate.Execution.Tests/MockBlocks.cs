@@ -309,6 +309,7 @@ public class MultiIOBlock : MockBlock
 public class SpinlockSource : MockBlock, IShipmentSource
 {
     public int MaxShipmentSize { get; set; } = 5;
+    public CancellationToken CancellationToken { get; set; }
 
     public SpinlockSource(string name) : base(name)
     {
@@ -319,10 +320,12 @@ public class SpinlockSource : MockBlock, IShipmentSource
     {
         // Spin indefinitely until cancellation is requested
         // This simulates a long-running operation that can only be stopped by cancellation
-        while (true)
+        while (!CancellationToken.IsCancellationRequested)
         {
-            // Check if we should break (in tests, cancellation will throw)
             Thread.Sleep(10);
         }
+        
+        // Return empty result when cancelled
+        return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>();
     }
 }
