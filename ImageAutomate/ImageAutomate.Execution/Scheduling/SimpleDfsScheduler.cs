@@ -19,6 +19,7 @@ internal sealed class SimpleDfsScheduler : IScheduler
 {
     // Scheduler queue; Critical section
     private readonly PriorityQueue<IBlock, float> _queue = new();
+    private readonly HashSet<IBlock> _enqueuedBlocks = [];
     private readonly Lock _lock = new();
 
     public bool IsEmpty
@@ -32,25 +33,111 @@ internal sealed class SimpleDfsScheduler : IScheduler
         }
     }
 
-    public void Enqueue(IBlock block, ExecutionContext context)
+    /// <inheritdoc />
+    public bool TryEnqueue(IBlock block, ExecutionContext context)
     {
+        // Don't enqueue blocked blocks
+        if (context.IsBlocked(block))
+            return false;
+
         lock (_lock)
         {
+            // Prevent duplicate enqueueing
+            if (!_enqueuedBlocks.Add(block))
+                return false;
+
             // Calculate priority at enqueue time for accurate scheduling
             float priority = CalculatePriority(block, context);
             _queue.Enqueue(block, priority);
+            return true;
         }
     }
 
+    /// <inheritdoc />
     public IBlock? TryDequeue(ExecutionContext context)
     {
         lock (_lock)
         {
-            if (_queue.Count == 0)
-                return null;
+            while (_queue.Count > 0)
+            {
+                var block = _queue.Dequeue();
+                _enqueuedBlocks.Remove(block);
 
-            // Simply dequeue - priority was calculated correctly at enqueue
-            return _queue.Dequeue();
+                // Skip blocked blocks that may have been blocked after enqueueing
+                if (context.IsBlocked(block))
+                    continue;
+
+                return block;
+            }
+
+            return null;
+        }
+    }
+
+    /// <inheritdoc />
+    public void SignalCompletion(IBlock completedBlock, ExecutionContext context)
+    {
+        // Find all downstream blocks using precomputed adjacency
+        if (!context.DownstreamBlocks.TryGetValue(completedBlock, out var downstreamBlocks))
+            return;
+
+        foreach (var downstreamBlock in downstreamBlocks)
+        {
+            // Get or create barrier (lazy initialization)
+            // Use active in-degree to handle cases where some upstream sources are exhausted
+            var lazyBarrier = context.Barriers.GetOrAdd(
+                downstreamBlock,
+                _ => new Lazy<DependencyBarrier>(
+                    () => new DependencyBarrier(downstreamBlock, context.GetActiveInDegree(downstreamBlock))));
+
+            var barrier = lazyBarrier.Value;
+
+            // Signal and check if ready
+            if (barrier.Signal())
+            {
+                // All dependencies satisfied - transition to Ready
+                context.BlockStates[downstreamBlock] = BlockExecutionState.Ready;
+
+                // Enqueue for execution (if not blocked)
+                TryEnqueue(downstreamBlock, context);
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public void HandleBlockedBlock(IBlock blockedBlock, ExecutionContext context)
+    {
+        // Decrement warehouse counters for upstream blocks (cleanup)
+        if (context.UpstreamBlocks.TryGetValue(blockedBlock, out var upstreamBlocks))
+        {
+            foreach (var upstreamBlock in upstreamBlocks)
+            {
+                if (context.Warehouses.TryGetValue(upstreamBlock, out var lazyWarehouse))
+                {
+                    lazyWarehouse.Value.DecrementConsumerCount();
+                }
+            }
+        }
+
+        // Signal downstream (so they can also be skipped when ready)
+        SignalCompletion(blockedBlock, context);
+
+        // Count as completed (skipped)
+        context.IncrementProcessedShipments();
+    }
+
+    /// <inheritdoc />
+    public void PrepareNextShipmentCycle(ExecutionContext context)
+    {
+        lock (context.ActiveSourcesLock)
+        {
+            foreach (var source in context.ActiveSources)
+            {
+                if (!context.IsBlocked(source))
+                {
+                    TryEnqueue(source, context);
+                }
+            }
         }
     }
 
@@ -74,11 +161,9 @@ internal sealed class SimpleDfsScheduler : IScheduler
     {
         float totalPressure = 0;
 
-        // Find all predecessor blocks (sources of incoming connections)
-        var predecessors = context.Graph.Connections
-            .Where(c => c.Target == block)
-            .Select(c => c.Source)
-            .Distinct();
+        // Use precomputed upstream blocks instead of LINQ
+        if (!context.UpstreamBlocks.TryGetValue(block, out var predecessors))
+            return totalPressure;
 
         foreach (var predecessor in predecessors)
         {

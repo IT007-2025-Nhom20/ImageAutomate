@@ -51,7 +51,7 @@ public class GraphExecutor(IGraphValidator validator) : IGraphExecutor
                 shipmentSource.MaxShipmentSize = configuration.MaxShipmentSize;
                 context.MarkSourceActive(block);
                 context.BlockStates[block] = BlockExecutionState.Ready;
-                scheduler.Enqueue(block, context);
+                scheduler.TryEnqueue(block, context);
             }
         }
 
@@ -106,10 +106,10 @@ public class GraphExecutor(IGraphValidator validator) : IGraphExecutor
                 if (block == null)
                     break; // No blocks ready
 
-                // Check if blocked (skip execution)
+                // Check if blocked (skip execution via scheduler)
                 if (context.IsBlocked(block))
                 {
-                    HandleBlockedBlock(block, context);
+                    context.Scheduler.HandleBlockedBlock(block, context);
                     continue;
                 }
 
@@ -144,15 +144,7 @@ public class GraphExecutor(IGraphValidator validator) : IGraphExecutor
                     {
                         // Sources still have shipments - reset and start next cycle
                         context.ResetForNextShipment();
-                        
-                        // Re-enqueue all active sources
-                        foreach (var source in context.ActiveSources)
-                        {
-                            if (!context.IsBlocked(source))
-                            {
-                                context.Scheduler.Enqueue(source, context);
-                            }
-                        }
+                        context.Scheduler.PrepareNextShipmentCycle(context);
                     }
                     else
                     {
@@ -230,8 +222,8 @@ public class GraphExecutor(IGraphValidator validator) : IGraphExecutor
             // Track progress
             context.IncrementProcessedShipments();
 
-            // Signal downstream barriers
-            SignalDownstreamBarriers(block, context);
+            // Signal downstream barriers via scheduler
+            context.Scheduler.SignalCompletion(block, context);
         }
         catch (Exception ex)
         {
@@ -351,41 +343,6 @@ public class GraphExecutor(IGraphValidator validator) : IGraphExecutor
     }
 
     /// <summary>
-    /// Signals downstream dependency barriers that a block has completed.
-    /// </summary>
-    private void SignalDownstreamBarriers(IBlock block, ExecutionContext context)
-    {
-        // Find all downstream blocks
-        var downstreamBlocks = context.Graph.Connections
-            .Where(c => c.Source == block)
-            .Select(c => c.Target)
-            .Distinct()
-            .ToList();
-
-        foreach (var downstreamBlock in downstreamBlocks)
-        {
-            // Get or create barrier (lazy initialization)
-            // Use active in-degree to handle cases where some upstream sources are exhausted
-            var lazyBarrier = context.Barriers.GetOrAdd(
-                downstreamBlock,
-                _ => new Lazy<DependencyBarrier>(
-                    () => new DependencyBarrier(downstreamBlock, context.GetActiveInDegree(downstreamBlock))));
-
-            var barrier = lazyBarrier.Value;
-
-            // Signal and check if ready
-            if (barrier.Signal())
-            {
-                // All dependencies satisfied - transition to Ready
-                context.BlockStates[downstreamBlock] = BlockExecutionState.Ready;
-                
-                // Enqueue for execution
-                context.Scheduler.Enqueue(downstreamBlock, context);
-            }
-        }
-    }
-
-    /// <summary>
     /// Blocks downstream blocks that can no longer execute due to exhausted sources.
     /// </summary>
     /// <remarks>
@@ -461,33 +418,8 @@ public class GraphExecutor(IGraphValidator validator) : IGraphExecutor
         // have no alternative active sources for their required sockets
         BlockOrphanedBranch(block, context);
 
-        // Signal downstream barriers (so blocked blocks can be skipped)
-        SignalDownstreamBarriers(block, context);
+        // Signal downstream barriers via scheduler (so blocked blocks can be skipped)
+        context.Scheduler.SignalCompletion(block, context);
     }
 
-    /// <summary>
-    /// Handles a blocked block: cleanup warehouses without execution.
-    /// </summary>
-    private void HandleBlockedBlock(IBlock block, ExecutionContext context)
-    {
-        // Decrement warehouse counters for upstream blocks (cleanup)
-        var upstreamBlocks = context.Graph.Connections
-            .Where(c => c.Target == block)
-            .Select(c => c.Source)
-            .Distinct()
-            .ToList();
-
-        foreach (var upstreamBlock in upstreamBlocks)
-        {
-            if (context.Warehouses.TryGetValue(upstreamBlock, out var lazyWarehouse))
-            {
-                lazyWarehouse.Value.DecrementConsumerCount();
-            }
-        }
-
-        // Signal downstream (so they can also be skipped)
-        SignalDownstreamBarriers(block, context);
-
-        context.IncrementProcessedShipments(); // Count as completed (skipped)
-    }
 }

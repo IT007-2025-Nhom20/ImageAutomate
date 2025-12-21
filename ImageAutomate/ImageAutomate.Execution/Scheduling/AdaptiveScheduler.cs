@@ -11,22 +11,27 @@ namespace ImageAutomate.Execution.Scheduling;
 /// </remarks>
 internal sealed class AdaptiveScheduler : IScheduler
 {
+    private const string NotImplementedMessage =
+        "Adaptive Mode is not yet implemented. Use ExecutionMode.SimpleDfs instead.";
+
     #region Reserved for Adaptive Mode Implementation
 
     #endregion
 
-    public bool IsEmpty => throw new NotImplementedException(
-        "Adaptive Mode is not yet implemented. Use ExecutionMode.SimpleDfs instead.");
+    public bool IsEmpty => throw new NotImplementedException(NotImplementedMessage);
 
-    public void Enqueue(IBlock block, ExecutionContext context)
-    {
-        throw new NotImplementedException(
-            "Adaptive Mode is not yet implemented. Use ExecutionMode.SimpleDfs instead.");
-    }
+    public bool TryEnqueue(IBlock block, ExecutionContext context)
+        => throw new NotImplementedException(NotImplementedMessage);
 
     public IBlock? TryDequeue(ExecutionContext context)
-    {
-        throw new NotImplementedException(
-            "Adaptive Mode is not yet implemented. Use ExecutionMode.SimpleDfs instead.");
-    }
+        => throw new NotImplementedException(NotImplementedMessage);
+
+    public void SignalCompletion(IBlock completedBlock, ExecutionContext context)
+        => throw new NotImplementedException(NotImplementedMessage);
+
+    public void HandleBlockedBlock(IBlock blockedBlock, ExecutionContext context)
+        => throw new NotImplementedException(NotImplementedMessage);
+
+    public void PrepareNextShipmentCycle(ExecutionContext context)
+        => throw new NotImplementedException(NotImplementedMessage);
 }
