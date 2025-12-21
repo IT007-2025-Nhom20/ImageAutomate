@@ -117,6 +117,50 @@ To optimize memory usage, cloning is deferred until the exact moment of dispatch
   * Warehouse Counters = Out-Degree (Fan-Out) - initialized when warehouse is first created.
   * Barrier Counters = In-Degree (Fan-In) - initialized when barrier is first accessed.
 * **Ready Queue Bootstrap:** All source blocks (In-Degree == 0) are enqueued immediately.
+* **Shipment Source Initialization:** Blocks implementing `IShipmentSource` (typically LoadBlock) have their `MaxShipmentSize` property configured from `ExecutorConfiguration.MaxShipmentSize` (default: 64).
+
+### **Phase 2.5: Shipment-Based Execution (LoadBlock Special Case)**
+
+**Problem:** Loading all images at once (e.g., 10,000 WorkItems) causes memory explosion and poor watchdog behavior (single progress tick for entire load operation).
+
+**Solution:** LoadBlock implements `IShipmentSource` and executes multiple times, producing batches of work items.
+
+#### **IShipmentSource Contract**
+
+```csharp
+public interface IShipmentSource : IBlock
+{
+    int MaxShipmentSize { get; set; }
+}
+```
+
+**Execution Flow:**
+
+1. **Bootstrap Phase:** LoadBlock stores file paths (not images) and initializes internal cursor/offset to 0.
+2. **First Execution:** LoadBlock.Execute() loads up to `MaxShipmentSize` images (e.g., 64), increments cursor.
+3. **Re-enqueue Decision:** Executor checks output count:
+   - If `outputCount >= MaxShipmentSize`: Re-enqueue LoadBlock (transition `Completed → Ready`)
+   - If `outputCount < MaxShipmentSize`: Mark LoadBlock as `Completed` (exhausted)
+4. **Subsequent Executions:** LoadBlock continues from cursor, loading next batch.
+5. **Pipeline Draining:** Downstream blocks (Resize, Save, etc.) process each shipment normally, unaware of batching.
+
+**Benefits:**
+
+* **Memory Control:** Pipeline holds max 64 × NumBlocks WorkItems, not 10,000.
+* **Watchdog-Friendly:** Processing 10,000 images = 157 shipments @ 64 each = 157 progress ticks (vs. 1 tick for "Load completed").
+* **Natural Backpressure:** Pipeline drains between shipments; downstream blocks don't queue 10,000 items.
+
+**Implementation Notes:**
+
+* **Transparency:** Downstream blocks are unaware of shipments—they simply process available inputs.
+* **State Persistence:** LoadBlock maintains internal state (cursor, file list) across executions.
+* **Exhaustion Detection:** `outputCount < MaxShipmentSize` signals no more data available.
+* **Progress Tracking:** Changed from `CompletedBlockCount` to `ProcessedShipmentCount` to accurately reflect progress.
+
+**Contrast with BatchWorkItem:**
+
+* **Shipments:** Mechanism for memory-controlled processing (multiple executions).
+* **BatchWorkItem:** Data structure for grouping images that must undergo identical processing (single execution, multiple images in one WorkItem).
 
 ### **Phase 3: Runtime Loop (Event-Driven)**
 
@@ -175,6 +219,26 @@ Uses only **Completion Pressure** from Section 5.1 with no live profiling. **Rec
 - Pipelines have >20 blocks
 - Block costs vary by >5× (e.g., heavy denoise vs. simple crop)
 - Willing to accept ~2-5% scheduling overhead for 10-20% throughput gain
+
+#### **Shipment Boundary Micro-Optimization**
+
+**Challenge:** With shipment-based execution, the pipeline completes a "mini-cycle" after each shipment (e.g., every 64 images). Mode B could recompute priorities/critical paths at these boundaries.
+
+**Options:**
+
+1. **Conservative (Recommended):** Only recompute after full cycles (LoadBlock exhausted).
+   - **Pro:** Stable scheduling, avoids thrashing.
+   - **Con:** Misses intra-shipment optimization opportunities.
+   
+2. **Aggressive:** Recompute after every shipment.
+   - **Pro:** Adapts quickly to changing block costs.
+   - **Con:** High overhead (157 recomputations for 10,000 images), scheduling instability.
+   
+3. **Hybrid (User-Configurable):** Add `ExecutorConfiguration.RecomputeAfterShipment` toggle.
+   - **Default:** `false` (conservative)
+   - **Advanced Users:** `true` for experimentation
+
+**Implementation Guidance:** Start with Option 1 (conservative). Add Option 3 if profiling shows benefit for specific workloads.
 
 ---
 
