@@ -20,7 +20,10 @@ The "Warehouse" is a storage component attached to the **Output Face** of a Prod
   1. **Storage:** Holds the `IDictionary<Socket, IReadOnlyList<WorkItem>>` produced by the block (immutable after commit).
   2. **Inventory Tracking:** Maintains a **Consumer Counter** (`int32` atomically decremented) initialized to the Output Socket's **Out-Degree** (number of downstream links).
   3. **Distribution:** Serves data to consumers upon request, implementing JIT Cloning logic.
-* **Thread Safety:** Counter updates use `Interlocked.Decrement`. Data reads are lock-free.
+* **Thread Safety:**
+  - Counter updates use `Interlocked.Decrement`.
+  - Data reads for *cloning* (intermediate consumers) are lock-free.
+  - Data import and final cleanup (last consumer) use a fine-grained `Lock` to ensure consistency.
 * **Lazy Initialization:** Warehouses are allocated on-demand when a block first produces output.
 
 ### **2.2. The Dependency Barrier (Control Gate)**
@@ -67,7 +70,14 @@ The Engine functions as a **Process Manager**. It is responsible for:
 
 ### **2.4. The Scheduler**
 
-TODO
+The Scheduler is responsible for determining the order of execution. It abstracts the policy (e.g., Simple DFS vs. Adaptive) from the mechanism.
+
+* **Interface (`IScheduler`):**
+  - **Readiness Tracking:** Manages the "Ready Queue" of blocks whose dependencies are satisfied.
+  - **Prioritization:** Decides which ready block to execute next based on the active strategy (e.g., Greedy Completion Pressure).
+  - **Completion Handling:** Signals downstream barriers upon block completion.
+  - **Cycle Management:** Handles shipment cycle transitions for batched execution.
+* **Affinity:** **Engine-Centric.** It is a component of the Engine.
 
 ## **3\. Interaction Patterns**
 
@@ -144,11 +154,11 @@ public interface IShipmentSource : IBlock
 **Execution Flow (using standard Load block):**
 
 1. **Bootstrap Phase:** `LoadBlock` stores file paths (not images) and initializes internal cursor/offset to 0.
-2. **First Execution:** `LoadBlock.Execute()` loads up to `MaxShipmentSize` images (e.g., 64), increments cursor.
+2. **First Execution:** `LoadBlock.Execute()` loads up to `MaxShipmentSize` images (e.g., 64).
 3. **Re-enqueue Decision:** Executor checks output count:
-   - If `outputCount >= MaxShipmentSize`: `LoadBlock` is kept and re-enqueued in the next cycle.
-   - If `outputCount < MaxShipmentSize`: Mark LoadBlock as `Completed` (exhausted). Engine scans for potentially blocked downstreams due to source exhaustion and remove them from context.
-4. **Subsequent Executions:** LoadBlock continues from cursor, loading next batch.
+   - If `outputCount >= MaxShipmentSize`: `LoadBlock` remains active and is re-enqueued for the next cycle.
+   - If `outputCount < MaxShipmentSize`: Mark LoadBlock as `Completed` (exhausted).
+4. **Subsequent Executions:** The cycle repeats until all sources are exhausted.
 5. **Pipeline Draining:** Downstream blocks (Resize, Save, etc.) process each shipment normally.
 
 **Benefits:**
@@ -168,16 +178,20 @@ public interface IShipmentSource : IBlock
 * **Shipments:** Mechanism for memory-controlled processing (multiple executions).
 * **BatchWorkItem:** Data structure for grouping images that must undergo identical processing (single execution, multiple images in one WorkItem).
 
-### **Phase 3: Runtime Loop (Event-Driven)**
+### **Phase 3: Runtime Loop**
 
-1. **Bootstrap:** Source nodes are scheduled.  
-2. **Execution:** Blocks execute on worker threads.  
-3. **Commit:** Outputs are stored in Warehouses.  
-4. **Signal:** Downstream Barriers are decremented.  
-5. **Dispatch:**  
-   * The Scheduler picks a "Ready" block.  
-   * **Fetch:** The Engine pulls data from upstream Warehouses (triggering JIT Cloning/Moving).  
-   * **Run:** The block executes.
+The Engine runs an asynchronous loop that orchestrates execution:
+
+1. **Watchdog:** Monitors progress to detect deadlocks (default 30s timeout).
+2. **Dispatch:** While concurrency limits allow:
+   * **Dequeue:** Asks the Scheduler for the next "Ready" block.
+   * **Execute:** Spawns a `Task` on the ThreadPool to execute the block.
+3. **Block Execution:**
+   * **Fetch:** Pulls data from upstream Warehouses (triggering JIT Cloning/Moving).
+   * **Run:** Executes the block logic.
+   * **Commit:** Stores results in the block's Warehouse.
+   * **Notify:** Informs the Scheduler of completion (which signals downstream barriers).
+4. **Cycle Management:** When all blocks complete, if sources remain active, resets state and begins the next shipment cycle.
 
 ## **5\. Resource Management**
 
@@ -425,30 +439,35 @@ The Engine monitors system conditions and adjusts parallelism:
 
 ### **8.1. Data Structures**
 
-* **Ready Queue:** `PriorityQueue<BlockId, float>`.
-* **Warehouse Storage:** `ImmutableList<WorkItem>` for thread safety (lock-free reads).
-* **Barrier Counter:** `int` with `Interlocked.Decrement` operations (hardware CAS, no locks).
-* **Lazy Components:** `ConcurrentDictionary<BlockId, Lazy<T>>` for on-demand initialization (lock-free with `GetOrAdd`).
+* **Ready Queue:** `System.Collections.Generic.PriorityQueue<IBlock, float>` (guarded by lock).
+* **Warehouse Storage:** `ImmutableList<WorkItem>` (guarded by lock for write/clear, lock-free for read).
+* **Barrier Counter:** `int` with `Interlocked` operations (lock-free).
+* **Lazy Components:** `ConcurrentDictionary<IBlock, Lazy<T>>` for on-demand initialization.
 
 ### **8.2. Threading Model**
 
 * **Execution:** 
-  - **Short Tasks (<1000ms estimated):** Use `ThreadPool.QueueUserWorkItem` (default).
-  - **Long Tasks (≥1000ms estimated):** Spawn with `TaskCreationOptions.LongRunning` to avoid ThreadPool starvation. Threshold configurable via `LongRunningThresholdMs`. (Mode B Only)
-  - **Estimation:** `EstimatedDuration = \hat{Cost}(B) \times WorkItem.SizeMP` (in milliseconds).
-* **Engine Thread:** Single dedicated thread for coordination.
+  - **Default:** `Task.Run` (runs on ThreadPool).
+  - **Long Running:** Not yet implemented (Mode B).
+* **Coordination:** Single async loop in `GraphExecutor`.
 
-### **8.3. Lock-Free Guarantees**
+### **8.3. Concurrency & Synchronization**
 
-**NEED REWORK**
+The system employs a **Hybrid Concurrency Model** combining atomic operations for high-frequency counters and fine-grained locks for structural state:
 
-The system is **algorithmically lock-free** with the following caveats:
+* **Atomic Operations (`Interlocked`):**
+  - Used for **Dependency Barriers** (signaling readiness).
+  - Used for **Warehouse Consumer Counts** (tracking remaining consumers).
+  - Ensures minimal overhead for the most frequent operations (signaling and checking availability).
 
-* **Surface Lock-Free:** No explicit `lock` statements or mutexes in the core execution path.
-* **Hardware Dependency:** Relies on x86/ARM64 atomic CAS instructions (`Interlocked` APIs). On exotic architectures without hardware atomics, .NET falls back to locks (transparent to user).
-* **Queue Implementation:** The `ConcurrentPriorityQueue` uses a lock-free skip list (based on Herlihy & Shavit's design). Individual node updates are atomic; iteration is not (uses snapshots).
-* **Progress Guarantee:** **Lock-freedom** (at least one thread makes progress), NOT **wait-freedom** (every thread makes progress). Starvation is theoretically possible under extreme contention but unlikely in practice.
-* **No CAS Loops:** Atomic counters use single `Decrement` calls (no retry logic). The value returned by `Decrement` is used for decision-making (Case A vs. Case B), avoiding race conditions.
+* **Fine-Grained Locks (`System.Threading.Lock`):**
+  - **Scheduler Queue:** Protects the PriorityQueue. Since enqueue/dequeue frequency is lower than block execution time, contention is low.
+  - **Warehouse Inventory:** Protects the import (commit) and the final cleanup (when count reaches zero).
+  - **Active Sources:** Protects the list of active shipment sources.
+
+* **Rationale:**
+  - Pure lock-free structures (like `ConcurrentPriorityQueue`) add significant complexity and are often slower than uncontended locks in .NET.
+  - The hybrid approach balances simplicity and performance, using atomics where contention is highest.
 
 ### **8.4. WorkItem Structure**
 
