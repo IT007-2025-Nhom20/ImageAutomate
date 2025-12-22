@@ -1,5 +1,4 @@
 using ImageAutomate.Core;
-using ImageAutomate.StandardBlocks;
 
 namespace ImageAutomate.Execution
 {
@@ -7,8 +6,8 @@ namespace ImageAutomate.Execution
     {
         public bool Validate(PipelineGraph graph)
         {
-            return HasExactlyOneLoadBlock(graph)
-                && HasAtLeastOneSaveBlock(graph)
+            return HasExactlyOneShipmentSource(graph)
+                && HasAtLeastOneShipmentSink(graph)
                 && AllInputSocketsConnected(graph)
                 && IsGraphDAG(graph);
         }
@@ -63,14 +62,14 @@ namespace ImageAutomate.Execution
             return count == graph.Blocks.Count;
         }
 
-        private bool HasExactlyOneLoadBlock(PipelineGraph graph)
+        private bool HasExactlyOneShipmentSource(PipelineGraph graph)
         {
-            return graph.Blocks.OfType<LoadBlock>().Take(2).Count() == 1;
+            return graph.Blocks.OfType<IShipmentSource>().Take(2).Count() == 1;
         }
 
-        private bool HasAtLeastOneSaveBlock(PipelineGraph graph)
+        private bool HasAtLeastOneShipmentSink(PipelineGraph graph)
         {
-            return graph.Blocks.OfType<SaveBlock>().Any();
+            return graph.Blocks.OfType<IShipmentSink>().Any();
         }
 
         private bool AllInputSocketsConnected(PipelineGraph graph)

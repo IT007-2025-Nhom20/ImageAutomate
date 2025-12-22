@@ -89,6 +89,8 @@ public class GraphExecutor : IGraphExecutor
             // Check cancellation
             if (context.CancellationToken.IsCancellationRequested)
             {
+                // Cleanup before throwing exception
+                await CleanupOnCancellation(context, activeTasks);
                 throw new PipelineCancelledException("Pipeline execution was cancelled.");
             }
 
@@ -176,22 +178,21 @@ public class GraphExecutor : IGraphExecutor
     /// </summary>
     private void ExecuteBlock(IBlock block, ExecutionContext context)
     {
+        IDictionary<Socket, IReadOnlyList<IBasicWorkItem>>? inputs = null;
+        
         try
         {
             // Mark as running
             context.SetBlockState(block, BlockExecutionState.Running);
 
             // Gather inputs from upstream warehouses
-            var inputs = GatherInputs(block, context);
+            inputs = GatherInputs(block, context);
 
             // Execute the block (already on thread pool thread from outer Task.Run)
             var outputs = block.Execute(inputs);
 
             // Commit outputs to warehouse
             ExportOutputs(block, outputs, context);
-
-            // Dispose consumed inputs immediately
-            DisposeInputs(inputs);
 
             // Check if this is a shipment source that has more shipments
             bool hasMoreShipments = ShouldReEnqueueShipment(block, outputs, context);
@@ -230,6 +231,12 @@ public class GraphExecutor : IGraphExecutor
         }
         finally
         {
+            // Dispose consumed inputs immediately (even on failure)
+            if (inputs != null)
+            {
+                DisposeInputs(inputs);
+            }
+            
             context.DecrementActiveBlocks();
         }
     }
@@ -415,6 +422,34 @@ public class GraphExecutor : IGraphExecutor
 
         // Notify scheduler (it will signal barriers so blocked blocks can be skipped)
         context.Scheduler.NotifyCompleted(block, context);
+    }
+
+    /// <summary>
+    /// Cleans up resources when pipeline execution is cancelled.
+    /// </summary>
+    /// <param name="context">The execution context.</param>
+    /// <param name="activeTasks">List of active tasks to cancel.</param>
+    private async Task CleanupOnCancellation(ExecutionContext context, List<Task> activeTasks)
+    {
+        // Note: Warehouses are cleared on next cycle reset or by context cleanup
+        // The main concern here is to let active tasks complete gracefully
+        
+        // Wait for all active tasks to complete (they will check cancellation token)
+        if (activeTasks.Count > 0)
+        {
+            try
+            {
+                await Task.WhenAll(activeTasks);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected on cancellation
+            }
+            catch (Exception)
+            {
+                // Other exceptions already recorded in context
+            }
+        }
     }
 
 }

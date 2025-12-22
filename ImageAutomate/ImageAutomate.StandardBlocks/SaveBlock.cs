@@ -14,7 +14,7 @@ using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
-public class SaveBlock : IBlock
+public class SaveBlock : IBlock, IShipmentSink
 {
     #region Fields
 
