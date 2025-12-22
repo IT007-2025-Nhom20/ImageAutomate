@@ -416,9 +416,10 @@ public class PluginLoader
             // Request unload from all instances that support it
             var unloadableInstances = instances.OfType<IPluginUnloadable>().ToList();
             
-            if (unloadableInstances.Count == 0 && instances.Count > 0)
+            // Check if all instances are unloadable
+            if (unloadableInstances.Count < instances.Count)
             {
-                // Has instances but none are unloadable
+                // Some instances don't implement IPluginUnloadable, cannot safely unload
                 return false;
             }
 
@@ -449,9 +450,19 @@ public class PluginLoader
             // All accepted, now check if they actually cleaned up
             // Give them time to complete cleanup
             var deadline = DateTimeOffset.UtcNow + timeout.Value;
+            const int pollIntervalMs = 50;
+            
             while (plugin.ActiveInstanceCount > 0 && DateTimeOffset.UtcNow < deadline)
             {
-                Thread.Sleep(100);
+                Monitor.Exit(_lock);
+                try
+                {
+                    Thread.Sleep(pollIntervalMs);
+                }
+                finally
+                {
+                    Monitor.Enter(_lock);
+                }
             }
 
             if (plugin.ActiveInstanceCount > 0)
