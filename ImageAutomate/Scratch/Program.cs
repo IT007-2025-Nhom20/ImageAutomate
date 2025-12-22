@@ -299,12 +299,7 @@ class Program
         }
         else
         {
-            string newTitle = parts[1].Trim();
-            if (newTitle.StartsWith("\"") && newTitle.EndsWith("\""))
-            {
-                newTitle = newTitle.Substring(1, newTitle.Length - 2);
-            }
-            instance.Title = newTitle;
+            Console.WriteLine($"Error: Instance title '{parts[1]}' is invalid");
         }
     }
 
@@ -330,7 +325,7 @@ class Program
             {
                 newContent = newContent.Substring(1, newContent.Length - 2);
             }
-            instance.Content = newContent;
+            Console.WriteLine($"Error: Instance content '{parts[1]}' is invalid");
         }
     }
 

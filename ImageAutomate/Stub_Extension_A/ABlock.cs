@@ -3,7 +3,7 @@ using ImageAutomate.Core;
 
 namespace Stub_Extension_A;
 
-public class ABlock : IBlock
+public class ABlock : IBlock, IPluginUnloadable
 {
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -59,5 +59,10 @@ public class ABlock : IBlock
     public void Dispose()
     {
         // No resources to dispose
+    }
+
+    public bool OnUnloadRequested()
+    {
+        return true;
     }
 }
