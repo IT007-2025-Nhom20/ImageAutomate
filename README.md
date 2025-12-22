@@ -1,6 +1,6 @@
 # ImageAutomate
 
-**ImageAutomate** is a modular, node-based image processing framework designed to build flexible execution pipelines. It separates logical graph definition from visualization and execution, enabling users to create complex image manipulation workflows visually or programmatically.
+**ImageAutomate** is a modular, node-based image processing framework designed to build flexible execution pipelines. It separates logical graph definition from visualization and execution, enabling users to create complex image manipulation workflows visually.
 
 ## 🏗 Architecture
 
