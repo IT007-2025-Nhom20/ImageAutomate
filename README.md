@@ -1,6 +1,6 @@
 # ImageAutomate
 
-**ImageAutomate** is a modular, node-based image processing framework designed to build flexible execution pipelines. It separates logical graph definition from visualization and execution, allowing for batch processing, high-performance rendering, and easy extensibility via plugins.
+**ImageAutomate** is a modular, node-based image processing framework designed to build flexible execution pipelines. It separates logical graph definition from visualization and execution, enabling users to create complex image manipulation workflows visually or programmatically.
 
 ## 🏗 Architecture
 
@@ -8,102 +8,80 @@ The system follows a **Core-Periphery** architecture, ensuring that the core log
 
 The solution is divided into the following key components:
 
-  * **ImageAutomate.Core**: The central contract library defining the topology (`PipelineGraph`), data units (`WorkItem`, `Socket`), and interfaces (`IBlock`). It has no dependencies on UI frameworks.
-  * **ImageAutomate.StandardBlocks**: A library of built-in image processing nodes (Resize, Crop, Blur, etc.) implemented using `SixLabors.ImageSharp`.
-  * **ImageAutomate.UI**: The visualization layer responsible for rendering the graph using MSAGL and GDI+.
-  * **ImageAutomate.Execution**: The engine that validates the topology and orchestrates the batch processing of images.
-  * **ImageAutomate.App**: The composition root (WinForms) that wires the components together and handles plugin loading.
+*   **ImageAutomate.Core**: The central contract library defining the topology (`PipelineGraph`), data units (`WorkItem`, `Socket`), and interfaces (`IBlock`). It has no dependencies on UI frameworks.
+*   **ImageAutomate.StandardBlocks**: A library of integrated standard image processing nodes (Resize, Crop, Blur, etc.) implemented using `SixLabors.ImageSharp`.
+*   **ImageAutomate.UI**: The visualization layer responsible for rendering the graph using high-performance **GDI+** (System.Drawing).
+*   **ImageAutomate.Execution**: The engine that validates the topology and orchestrates the dataflow.
+*   **ImageAutomate**: The main WinForms application (Composition Root) that provides the visual editor and wires the components together.
 
-### Execution Model
+### Execution Engine
 
-ImageAutomate uses a **Vertical Parallelism** strategy. Data is processed in groups where a specific batch flows through the entire pipeline before the next batch begins. This simplifies state management and resource usage.
+The Execution Engine implements a **Pipes and Filters** architecture governed by a **Dataflow** model.
+
+*   **Warehouses (Data Adapters)**: Act as buffers attached to the output of producer blocks. They manage data storage and implement "JIT Cloning" to optimize memory usage (transferring ownership for the last consumer, cloning for others).
+*   **Barriers (Control Adapters)**: Lightweight control structures attached to consumer blocks. They track dependencies and signal the engine when a block is ready for execution.
+
+This design effectively decouples blocks from one another, facilitating a robust flow where the Engine orchestrates execution based on data availability (Warehouses) and readiness signaling (Barriers).
 
 ## 🧩 Core Concepts
 
-### PipelineGraph
+### Node-Based Workflow
 
-The `PipelineGraph` is the core data structure representing the workflow. It acts as a wrapper around the MSAGL `GeometryGraph`, bridging the application's business logic with the geometric layout engine.
+ImageAutomate allows users to construct image processing pipelines by connecting nodes (Blocks). Each node represents an operation, and connections represent the flow of image data.
 
 ### IBlock
 
 All processing nodes implement the `IBlock` interface. This defines the contract for inputs, outputs, configuration, and execution logic.
 
-  - **Inputs/Outputs**: Defined via `Socket`s, functioning like a directed messaging system.
-  - **Configuration**: Blocks expose a `ConfigurationSummary` for quick visual inspection in the graph.
+*   **Inputs/Outputs**: Defined via `Socket`s.
+*   **Configuration**: Blocks expose metadata and configuration options.
 
-### GraphRenderPanel
+### Visualization
 
-The UI is powered by `GraphRenderPanel`, a high-performance custom WinForms control. It features automatic layered layout (via MSAGL), zoom-to-cursor, and custom GDI+ node rendering.
+The UI is powered by `GraphRenderPanel`, a custom WinForms control in the `ImageAutomate.UI` library. It features:
+*   Manual layout system (drag-and-drop).
+*   Custom GDI+ rendering for nodes and connections (Bezier curves).
+*   Zoom and Pan capabilities.
 
 ## 📦 Standard Blocks
 
-The project includes a suite of standard blocks for common image manipulation tasks:
+The project includes a suite of integrated standard blocks:
 
-**I/O:**
-
-  * `LoadBlock`: Reads images from a directory.
-  * `SaveBlock`: Saves processed images to disk (supports PNG, JPG, WebP, etc.).
-
-**Transform:**
-
-  * `ResizeBlock`: Resize images (Fixed, Fit, Fill, Pad modes).
-  * `CropBlock`: Crop images (Rectangle, Center, Anchor modes).
-  * `FlipBlock`: Horizontal or Vertical flipping.
-
-**Effects:**
-
-  * `GaussianBlurBlock`, `SharpenBlock`, `PixelateBlock`
-  * `HueBlock`, `SaturationBlock`, `ContrastBlock`, `VignetteBlock`
-
-**Format:**
-
-  * `ConvertBlock`: Changes image formats (e.g., PNG to JPG) with granular compression settings.
+*   **I/O**: `LoadBlock`, `SaveBlock`.
+*   **Transform**: `ResizeBlock`, `CropBlock`, `FlipBlock`.
+*   **Effects**: `GaussianBlurBlock`, `SharpenBlock`, `PixelateBlock`, `HueBlock`, `SaturationBlock`, `ContrastBlock`, `VignetteBlock`.
+*   **Format**: `ConvertBlock`.
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-  * .NET 9.0 SDK
-  * Visual Studio 2022 (or compatible IDE)
+*   .NET 9.0 SDK
+*   Visual Studio 2022 (or compatible IDE)
 
-### Project Structure
+### Building and Running
 
-  * `ImageAutomate.Core/`: Interfaces and Graph Data Structures.
-  * `ImageAutomate.StandardBlocks/`: Implementation of standard image operations.
-  * `ConvertBlockPoC/`: The current visual Proof-of-Concept application.
-  * `Stub_Extension_A/`: Example of an external plugin.
+1.  Clone the repository.
+2.  Open `ImageAutomate.sln`.
+3.  Set the **ImageAutomate** project as the Startup Project.
+4.  Build and Run the application.
 
-### Running the Visual PoC
+### Usage
 
-The `ConvertBlockPoC` project demonstrates the graph rendering and manipulation capabilities.
+The main application window provides a menu bar and a canvas:
 
-1.  Open `ImageAutomate.sln`.
-2.  Set `ConvertBlockPoC` as the startup project.
-3.  Run the application to interact with the node graph visualization.
+*   **File**: Create, Load, or Save graph files.
+*   **Edit**: Add nodes or manage the graph.
+*   **Plugins**: Manage and load external block plugins.
 
 ## 🔌 Extensibility
 
-ImageAutomate is designed for plugins. To create a new block:
+ImageAutomate is designed for extensibility. New blocks can be added via plugins.
 
-1.  Create a new Class Library project.
-2.  Reference `ImageAutomate.Core`.
-3.  Implement the `IBlock` interface.
-4.  Define your `Socket` inputs and outputs.
-5.  Implement the `Execute` method using your image processing logic.
+1.  Create a Class Library referencing `ImageAutomate.Core`.
+2.  Implement the `IBlock` interface.
+3.  Compile and load the DLL via the application's Plugin Manager.
 
-*Example (from `Stub_Extension_A`):*
+## ⚠️ Status
 
-```csharp
-public class MyCustomBlock : IBlock
-{
-    public string Name => "MyCustomBlock";
-    // ... Implement properties and Execute logic
-}
-```
-
-## ✅ TODO
-
-Current roadmap items:
-
-  - [ ] Implement `BeginUpdate` / `EndUpdate` for batch graph modifications.
-  - [ ] Improve edge rendering to use the layout engine's calculated curves.
+This project is currently in a **Prototype-Ready** state. The individual components (Core, Execution, UI, StandardBlocks) are functional, but the main application ensemble is under active development.
