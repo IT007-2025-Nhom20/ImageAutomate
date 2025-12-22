@@ -16,6 +16,10 @@
 *   **`Connections`**: `IReadOnlyList<Connection>` - Returns all connections in the graph.
 *   **`Center`**: `IBlock?` - The currently focused or selected block.
 
+### Events
+
+*   **`GraphChanged`**: `EventHandler?` - Occurs when the graph structure changes (nodes/edges added or removed).
+
 ### Methods
 
 #### `AddBlock(IBlock block)`
@@ -25,13 +29,21 @@ Adds a block to the graph.
 Removes a block and all its associated connections.
 
 #### `Connect(...)`
-Establishes a connection between a source block's output socket and a target block's input socket. Ensures that a target socket can only have one incoming connection.
+Establishes a connection between a source block's output socket and a target block's input socket.
+
+**Overloads:**
+*   `Connect(IBlock source, Socket sourceSocket, IBlock target, Socket targetSocket)`
+*   `Connect(IBlock source, string sourceSocketId, IBlock target, string targetSocketId)`
 
 #### `Disconnect(Connection connection)`
 Removes a specific connection.
 
 #### `Clear()`
 Resets the graph to an empty state.
+
+#### Serialization (Pending)
+*   **`ToJson()`**: Not implemented.
+*   **`FromJson(string json)`**: Not implemented.
 
 ## Usage
 

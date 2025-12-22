@@ -41,7 +41,7 @@ public interface IBlock : INotifyPropertyChanged, IDisposable
 ### `Width` / `Height`
 *   **Type**: `int`
 *   **Description**: Dimensions of the node in the visual graph.
-*   **Usage**: Used by the layout engine (`GraphRenderPanel` and MSAGL) to allocate space.
+*   **Usage**: Used by the layout engine (`GraphRenderPanel`) to allocate space and perform hit-testing.
 
 ### `Inputs` / `Outputs`
 *   **Type**: `IReadOnlyList<Socket>`
