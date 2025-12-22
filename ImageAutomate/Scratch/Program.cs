@@ -1,4 +1,5 @@
 using ImageAutomate.Core;
+using ImageAutomate.StandardBlocks;
 
 namespace Scratch;
 
