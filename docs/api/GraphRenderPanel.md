@@ -32,6 +32,7 @@ This control provides a comprehensive visualization of the image processing work
     *   The current zoom level of the graph.
 *   **`AllowOutOfScreenPan`** (`bool`)
     *   Determines if the user can pan the graph completely out of the viewport.
+    *   Default: `false`.
 
 #### Appearance
 *   **`SelectedBlockOutlineColor`** (`Color`)
@@ -40,6 +41,32 @@ This control provides a comprehensive visualization of the image processing work
 *   **`SocketRadius`** (`double`)
     *   Visual size of the input/output connection points.
     *   Default: `6`.
+
+### Methods
+
+#### `AddBlockAndConnect(...)`
+Adds blocks to the graph (if missing) and connects them.
+```csharp
+void AddBlockAndConnect(IBlock sourceBlock, Socket sourceSocket, IBlock destBlock, Socket destSocket)
+```
+
+#### `AddSuccessor(...)`
+Connects the currently selected block (`Graph.Center`) to a new downstream block.
+```csharp
+void AddSuccessor(Socket sourceSocket, IBlock destBlock, Socket destSocket)
+```
+
+#### `AddPredecessor(...)`
+Connects a new upstream block to the currently selected block (`Graph.Center`).
+```csharp
+void AddPredecessor(IBlock sourceBlock, Socket sourceSocket, Socket destSocket)
+```
+
+#### `CenterCameraOnGraph()`
+Pans the view to center the graph content within the viewport.
+```csharp
+void CenterCameraOnGraph()
+```
 
 ## User Interaction
 
