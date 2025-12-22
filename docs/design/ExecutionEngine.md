@@ -183,18 +183,22 @@ public interface IShipmentSource : IBlock
 
 ### **5.1. Memory Efficiency (Greedy Completion Pressure)**
 
-Since Warehouses hold data until *all* consumers have read it, "partial consumption" leads to memory waste.
+Since Warehouses hold data until *all* consumers have read it, "partial consumption" leads to memory waste. The Scheduler picks the block that clears the most expensive active buffers.
 
-* **Greedy Strategy:** The Scheduler always picks the "hungriest" block—the one that will free the most memory right now—using pure **Completion Pressure**:
+* **Formula:**
   
   $$Priority(B) = -\sum_{P \in Predecessors(B)} \frac{WarehouseSize(P)}{RemainingConsumers(P)}$$
   
   (Negative because PriorityQueue is min-heap)
   
-  * *Mechanism:* If Block A feeds Block B and Block C, and Block A finishes (Warehouse RefCount=2), both B and C have equal pressure initially. Once B executes and creates its own Warehouse, the path through B (e.g., B→SaveB) accumulates warehouses and becomes "hungrier" than C.
-  * *Natural DFS:* Blocks deeper in an active path accumulate more warehouse pressure from predecessors, causing the scheduler to greedily follow that path to completion before switching branches.
-  * *Outcome:* Completing SaveB frees B's warehouses before C executes, minimizing peak memory usage.
-  * *Implementation:* Priority calculated once at enqueue time (O(In-Degree) per block).
+* **Mechanism (Fan-Out Dilution):**
+  * **Shared Parents (Low Priority):** If Block A feeds B and C (Out-Degree=2), the pressure to execute B is only $Size(A) / 2$. Executing B doesn't fully release A, so it's "cheaper" to ignore.
+  * **Exclusive Parents (High Priority):** Once B executes and produces data for SaveB (Out-Degree=1), the pressure to execute SaveB is $Size(B) / 1$.
+  * **Result:** Since $Size(B)/1 > Size(A)/2$, the scheduler prioritizes the exclusive child (SaveB) over the sibling (C).
+  
+* **Natural DFS:** The formula implicitly favors following a linear chain (where Out-Degree=1) over widening the graph (where Out-Degree > 1). This keeps the "working set" of active buffers deep and narrow, rather than shallow and wide.
+
+* **Implementation:** Priority calculated locally at enqueue time (O(In-Degree)).
 
 ### **5.2. Deterministic Disposal**
 
