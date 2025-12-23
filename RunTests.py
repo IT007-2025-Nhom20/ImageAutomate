@@ -12,6 +12,7 @@ TRX_FILE = os.path.abspath("stress_test_temp.trx")
 
 results = {}  # { "TestName": { "pass": 0, "fail": 0 } }
 run_count = 0
+failed = False
 
 def signal_handler(sig, frame):
     print("\n\nStopping... Generating report.")
@@ -55,17 +56,18 @@ def print_report():
             print(row)
 
 def parse_trx(file_path):
+    global failed
     try:
         tree = ET.parse(file_path)
         root = tree.getroot()
-        
+
         # Namespace agnostic search
         # We iterate everything and check the tag name string ending
         for elem in root.iter():
             if elem.tag.endswith('UnitTestResult'):
                 test_name = elem.get('testName')
                 outcome = elem.get('outcome') # 'Passed', 'Failed'
-                
+
                 if test_name not in results:
                     results[test_name] = {'pass': 0, 'fail': 0}
 
@@ -73,42 +75,61 @@ def parse_trx(file_path):
                     results[test_name]['pass'] += 1
                 elif outcome == 'Failed':
                     results[test_name]['fail'] += 1
-                
+                    failed = True
+
     except ET.ParseError:
         print(f"[!] XML Parse Error on run {run_count}")
 
 def main():
-    global run_count
-    
+    global run_count, failed
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('--runs', type=int, default=10)
-    parser.add_argument('--filter', type=str, default='')
-    parser.add_argument('--project', type=str, default='')
-    # Add configuration argument (Debug/Release) just in case
-    parser.add_argument('-c', '--configuration', type=str, default='Debug')
-    
+    parser.add_argument('--runs', type=int, default=10,
+                        help='Number of times to run the tests (ignored if --run-until-fail is used)')
+    parser.add_argument('--run-until-fail', action='store_true',
+                        help='Run tests repeatedly until a failure occurs')
+    parser.add_argument('--filter', type=str, default='',
+                        help='Filter for tests (e.g., "FullyQualifiedName=MyTestMethod" or just "MyTestMethod")')
+    parser.add_argument('--project', type=str, default='',
+                        help='Path to the test project file (required when using --filter with just a method name)')
+    parser.add_argument('-c', '--configuration', type=str, default='Debug',
+                        help='Build configuration (Debug or Release)')
+
     args = parser.parse_args()
 
     signal.signal(signal.SIGINT, signal_handler)
 
     # Note the usage of LogFileName with an absolute path
     cmd = [
-        "dotnet", "test", 
+        "dotnet", "test",
         "--configuration", args.configuration,
         "--logger", f"trx;LogFileName={TRX_FILE}"
     ]
-    
+
     if args.project:
         cmd.insert(2, args.project)
-        
+
     if args.filter:
-        cmd.extend(["--filter", args.filter])
+        # If the filter doesn't contain '=', treat it as a method name only
+        if '=' not in args.filter:
+            # Use FullyQualifiedName filter with the provided method name
+            filter_value = f"FullyQualifiedName={args.filter}"
+            cmd.extend(["--filter", filter_value])
+        else:
+            cmd.extend(["--filter", args.filter])
 
     print(f"Targeting Log File: {TRX_FILE}")
+    if args.run_until_fail:
+        print("Mode: Run until failure detected")
+    else:
+        print(f"Mode: Run {args.runs} times")
     print("Starting...")
 
     while True:
-        if args.runs > 0 and run_count >= args.runs:
+        if not args.run_until_fail and args.runs > 0 and run_count >= args.runs:
+            break
+
+        if args.run_until_fail and failed:
             break
             
         run_count += 1
