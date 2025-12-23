@@ -64,17 +64,17 @@ public class ResizeBlock : IBlock
                        $"Width: {TargetWidth}\n" +
                        $"Height: {TargetHeight}\n" +
                        $"Preserve aspect ratio: {PreserveAspectRatio}\n" +
-                       $"Resampler: {Resampler}\n";
+                       $"Resampler: {Resampler}";
             else if (ResizeMode is ResizeModeOption.Pad)
                 return $"Resize mode: {ResizeMode}\n" +
                        $"Width: {TargetWidth}\n" +
                        $"Height: {TargetHeight}\n" +
                        $"Resampler: {Resampler}\n" +
-                       $"Back ground color: {BackgroundColor}\n";
+                       $"Background color: {BackgroundColor}";
             return $"Resize mode: {ResizeMode}\n" +
                    $"Width: {TargetWidth}\n" +
                    $"Height: {TargetHeight}\n" +
-                   $"Resampler: {Resampler}\n";
+                   $"Resampler: {Resampler}";
         }
     }
 
