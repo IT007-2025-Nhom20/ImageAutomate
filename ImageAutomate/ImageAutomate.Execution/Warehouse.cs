@@ -98,34 +98,24 @@ internal sealed class Warehouse
             ? inventory.Where(kvp => sockets.Contains(kvp.Key))
             : inventory;
 
+        // Always defensive cloning
+        var result = filtered.ToDictionary(
+            kvp => kvp.Key,
+            kvp => (IReadOnlyList<IBasicWorkItem>)kvp.Value
+                .Select(item => (IBasicWorkItem)item.Clone())
+                .ToList()
+        );
+
+        // Nullify immediately on last consumer so GC can free it
         if (remainingConsumers == 0)
         {
-            // Last consumer: Transfer ownership
-            var result = filtered.ToDictionary(
-                kvp => kvp.Key,
-                kvp => (IReadOnlyList<IBasicWorkItem>)kvp.Value
-            );
-
-            // Clear internal storage (allow GC)
-            //!!!!! VERY IMPORTANT: NEVER FORGET TO LOCK WHEN TOUCHING _inventory !!!!!
             lock (_lock)
             {
                 _inventory = null;
             }
-
-            return result;
         }
-        else
-        {
-            var result = filtered.ToDictionary(
-                kvp => kvp.Key,
-                kvp => (IReadOnlyList<IBasicWorkItem>)kvp.Value
-                    .Select(item => (IBasicWorkItem)item.Clone())
-                    .ToList()
-            );
 
-            return result;
-        }
+        return result;
     }
 
     /// <summary>

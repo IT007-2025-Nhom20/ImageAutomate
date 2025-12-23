@@ -110,21 +110,24 @@ To optimize memory usage, cloning is deferred until the exact moment of dispatch
 
 * **Logic:** When a Consumer Block is dispatched, it requests inputs from the upstream Warehouses.
 * **Check:** The Warehouse uses `Interlocked.Decrement` to atomically decrement its **Consumer Counter**.
-    * **Case A (Counter after decrement ≥ 1):** Other consumers are still waiting. The Warehouse creates a **Defensive Clone** `IBasicWorkItem`'s `Clone` contract and returns the clone.
-    * **Case B (Counter after decrement == 0):** This is the last consumer. The Warehouse transfers the **Original Reference** (ownership transfer). The internal buffer is cleared.
+* **Defensive Cloning:** The Warehouse creates a **Clone** `IBasicWorkItem`'s `Clone` contract and returns the clone. When the warehouse is empty (counter after decrement == 0), the warehouse nullify its internal buffer for GC cleanup.
 * **Constraint:** `WorkItem` wraps `Image<TPixel>` from SixLabors.ImageSharp. When cloning, use `image.Clone()`. When transferring (Case B), the original `WorkItem` is moved.
 * **Disposal Semantics:**
     - After a block finishes execution, the Engine **must** call `workItem.Dispose()` on all consumed inputs (Section 5.2). This disposes the underlying `Image<TPixel>`.
     - **Warehouse Cleanup:** Once Counter reaches 0, the Warehouse clears its internal reference (no explicit disposal—GC handles it if no transfer occurred).
 
-* **Race Condition Prevention Reference:**
+* **Warehouse Item Distribution Reference:**
     ```csharp
     int remaining = Interlocked.Decrement(ref consumerCounter);
-    if (remaining == 0) {
-        return MoveOriginal(); // Last consumer
-    } else {
-        return CreateClone();  // Still has consumers
+    var clone = _internalBuffer.Clone();
+    if (remaining == 0)
+    {
+        lock (bufferLock)
+        {
+            _internalBuffer = null; // Last consumer
+        }
     }
+    return clone;
     ```
 
 ## **4\. Execution Lifecycle**
@@ -656,7 +659,7 @@ flowchart TB
     Engine -- "6. Schedule on ThreadPool" --> Consumer
 
     %% Data Pull Flow
-    Consumer -- "7. Pull Data (JIT Clone/Move)" --> Warehouse
+    Consumer -- "7. Pull Data (JIT Clone)" --> Warehouse
     Warehouse -- "8. Return WorkItem" --> Consumer
 ```
 
@@ -687,8 +690,7 @@ flowchart LR
 
         Buffer
         JITLogic --> ConsCounter
-        ConsCounter -- "Remaining > 0" --> Clone["<b>Defensive Clone</b><br/>(Deep Copy)"]
-        ConsCounter -- "Remaining == 0" --> Move["<b>Reference Handover</b><br/>(Ownership Transfer)"]
+        ConsCounter --> Clone["<b>Defensive Clone</b><br/>(Deep Copy)"]
 
     end
 
@@ -774,7 +776,7 @@ sequenceDiagram
         activate BlockC
         
         note right of BlockC: 1. Gather
-        BlockC->>WhA: Fetch Input (Move)
+        BlockC->>WhA: Fetch Input (Clone)
         note right of WhA: Ref Cleared
         
         note right of BlockC: 2. Execute
