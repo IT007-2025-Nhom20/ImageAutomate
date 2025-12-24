@@ -38,8 +38,13 @@ public static class WebPPluginInitializer
             }
             catch (Exception ex)
             {
-                // Log or handle initialization failure
+                // Log the full exception for debugging
                 Console.Error.WriteLine($"Failed to initialize WebP format extension: {ex.Message}");
+                Console.Error.WriteLine($"Stack trace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.Error.WriteLine($"Inner exception: {ex.InnerException.Message}");
+                }
                 return false;
             }
         }
@@ -62,11 +67,11 @@ public static class WebPPluginInitializer
             Version = "1.0.0",
             Description = "Provides WebP image format support with configurable encoding options",
             FormatName = "WebP",
-            FileExtensions = new[] { ".webp" },
-            MimeTypes = new[] { "image/webp" },
+            FileExtensions = [".webp"],
+            MimeTypes = ["image/webp"],
             SupportsEncoding = true,
             SupportsDecoding = true,
-            ConfigurationTypes = new[] { typeof(WebPOptions) }
+            ConfigurationTypes = [typeof(WebPOptions)]
         };
     }
 

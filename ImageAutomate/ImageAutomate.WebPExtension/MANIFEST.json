@@ -6,9 +6,9 @@
   "Author": "ImageAutomate",
   "Metadata": {
     "FormatName": "WebP",
-    "FormatExtensions": ".webp",
+    "FormatExtensions": [".webp"],
     "FormatMimeType": "image/webp",
-    "RequiresRegistry": "true",
+    "RequiresRegistry": true,
     "PluginType": "FormatExtension",
     "InitializationClass": "ImageAutomate.WebPExtension.WebPPluginInitializer"
   }
