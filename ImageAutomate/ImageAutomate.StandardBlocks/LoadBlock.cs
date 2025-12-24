@@ -126,7 +126,12 @@ public class LoadBlock : IBlock, IShipmentSource
 
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
-        var items = LoadWorkItems();
+        return Execute(inputs, CancellationToken.None);
+    }
+
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
+    {
+        var items = LoadWorkItems(cancellationToken);
 
         var list = new List<IBasicWorkItem>(items);
 
@@ -140,7 +145,12 @@ public class LoadBlock : IBlock, IShipmentSource
 
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
-        var items = LoadWorkItems();
+        return Execute(inputs, CancellationToken.None);
+    }
+
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
+    {
+        var items = LoadWorkItems(cancellationToken);
 
         var list = new List<IBasicWorkItem>(items);
 
@@ -154,7 +164,7 @@ public class LoadBlock : IBlock, IShipmentSource
 
     #endregion
 
-    private IEnumerable<IBasicWorkItem> LoadWorkItems()
+    private IEnumerable<IBasicWorkItem> LoadWorkItems(CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(SourcePath))
             throw new InvalidOperationException("LoadBlock: SourcePath is required.");
@@ -179,6 +189,8 @@ public class LoadBlock : IBlock, IShipmentSource
 
         for (int i = 0; i < batchSize; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             string file = _cachedFilePaths[_currentOffset + i];
             
             Image image = LoadImageFile(file);

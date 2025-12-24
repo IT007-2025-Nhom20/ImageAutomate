@@ -46,11 +46,21 @@ public class CBlock : IBlock, IPluginUnloadable
 
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
+        return Execute(inputs, CancellationToken.None);
+    }
+
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
+    {
         Console.WriteLine($"Stub {Name} is being executed...");
         return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>();
     }
 
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
+    {
+        return Execute(inputs, CancellationToken.None);
+    }
+
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         Console.WriteLine($"Stub {Name} is being executed...");
         return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>();
