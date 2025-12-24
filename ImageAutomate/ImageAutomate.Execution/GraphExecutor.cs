@@ -189,7 +189,7 @@ public class GraphExecutor : IGraphExecutor
             inputs = GatherInputs(block, context);
 
             // Execute the block (already on thread pool thread from outer Task.Run)
-            var outputs = block.Execute(inputs);
+            var outputs = block.Execute(inputs, context.CancellationToken);
 
             // Commit outputs to warehouse
             ExportOutputs(block, outputs, context);

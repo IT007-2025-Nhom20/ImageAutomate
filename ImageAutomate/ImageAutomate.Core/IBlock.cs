@@ -60,11 +60,28 @@ public interface IBlock: INotifyPropertyChanged, IDisposable
     /// <param name="inputs">Map of sockets to input work items.</param>
     /// <returns>Map of sockets to output work items.</returns>
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs);
+
+    /// <summary>
+    /// Executes the block operation on the given inputs with cancellation support.
+    /// </summary>
+    /// <param name="inputs">Map of sockets to input work items.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Map of sockets to output work items.</returns>
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken);
+
     /// <summary>
     /// Executes the block operation on the given inputs (by socket ID).
     /// </summary>
     /// <param name="inputs">Map of socket IDs to input work items.</param>
     /// <returns>Map of socket to output work items.</returns>
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs);
+
+    /// <summary>
+    /// Executes the block operation on the given inputs (by socket ID) with cancellation support.
+    /// </summary>
+    /// <param name="inputs">Map of socket IDs to input work items.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Map of socket to output work items.</returns>
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken);
     #endregion
 }

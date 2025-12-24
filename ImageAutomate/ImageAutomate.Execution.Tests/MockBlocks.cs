@@ -37,10 +37,20 @@ public abstract class MockBlock : IBlock
 
     public virtual IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
-        return ExecuteInternal(inputs);
+        return Execute(inputs, CancellationToken.None);
+    }
+
+    public virtual IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
+    {
+        return ExecuteInternal(inputs, cancellationToken);
     }
 
     public virtual IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
+    {
+        return Execute(inputs, CancellationToken.None);
+    }
+
+    public virtual IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         // Map string IDs to Sockets
         var mappedInputs = new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>();
@@ -52,11 +62,13 @@ public abstract class MockBlock : IBlock
                 mappedInputs[socket] = kvp.Value;
             }
         }
-        return ExecuteInternal(mappedInputs);
+        return ExecuteInternal(mappedInputs, cancellationToken);
     }
 
-    protected virtual IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    protected virtual IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         // Default no-op behavior:
         // If 1 input and 1 output, pass through.
         // Otherwise return empty.
@@ -115,13 +127,14 @@ public class MockSource : MockBlock, IShipmentSource
         TotalItemsToProduce = totalItems;
     }
 
-    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         var outputList = new List<IBasicWorkItem>();
         int count = 0;
 
         while (count < MaxShipmentSize && _itemsProduced < TotalItemsToProduce)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             outputList.Add(new MockWorkItem(Name));
             _itemsProduced++;
             count++;
@@ -145,12 +158,13 @@ public class MockSink : MockBlock, IShipmentSink
         Inputs = new List<Socket> { new Socket("In", "Input") };
     }
 
-    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         if (inputs.TryGetValue(Inputs[0], out var items))
         {
             foreach (var item in items)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (item is ICloneable cloneable)
                 {
                     ReceivedItems.Add((IBasicWorkItem)cloneable.Clone());
@@ -169,7 +183,7 @@ public class WillFailBlock : MockBlock
         Outputs = new List<Socket> { new Socket("Out", "Output") };
     }
 
-    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         throw new Exception($"Block {Name} failed intentionally.");
     }
@@ -188,7 +202,7 @@ public class MultiInputBlock : MockBlock
         Outputs = new List<Socket> { new Socket("Out", "Output") };
     }
 
-    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         var outputList = new List<IBasicWorkItem>();
 
@@ -198,6 +212,7 @@ public class MultiInputBlock : MockBlock
             {
                 foreach (var item in items)
                 {
+                     cancellationToken.ThrowIfCancellationRequested();
                      if (item is ICloneable cloneable)
                     {
                         outputList.Add((IBasicWorkItem)cloneable.Clone());
@@ -226,7 +241,7 @@ public class MultiOutputBlock : MockBlock
         Outputs = outputs;
     }
 
-    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         var result = new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>();
 
@@ -237,6 +252,7 @@ public class MultiOutputBlock : MockBlock
                 var outputList = new List<IBasicWorkItem>();
                 foreach (var item in items)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (item is ICloneable cloneable)
                     {
                         outputList.Add((IBasicWorkItem)cloneable.Clone());
@@ -276,7 +292,7 @@ public class MultiIOBlock : MockBlock
         Outputs = outputs;
     }
 
-    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         // Simple strategy: Interleave inputs to all outputs
         var allInputs = new List<IBasicWorkItem>();
@@ -294,6 +310,7 @@ public class MultiIOBlock : MockBlock
             var outputList = new List<IBasicWorkItem>();
             foreach (var item in allInputs)
             {
+                 cancellationToken.ThrowIfCancellationRequested();
                  if (item is ICloneable cloneable)
                 {
                     outputList.Add((IBasicWorkItem)cloneable.Clone());
@@ -316,11 +333,12 @@ public class SpinlockSource : MockBlock, IShipmentSource
         Outputs = new List<Socket> { new Socket("Out", "Output") };
     }
 
-    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         // Spin indefinitely until cancellation is requested
         // This simulates a long-running operation that can only be stopped by cancellation
-        while (!CancellationToken.IsCancellationRequested)
+        // Also check the passed cancellationToken
+        while (!CancellationToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
             Thread.Sleep(10);
         }
@@ -340,7 +358,7 @@ public class SingleItemSource : MockBlock, IShipmentSource
         Outputs = new List<Socket> { new Socket("Out", "Out") };
     }
 
-    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         if (_produced) return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>> { { Outputs[0], new List<IBasicWorkItem>() } };
         
@@ -362,11 +380,12 @@ public class ModifierBlock : MockBlock
             Outputs = new List<Socket> { new Socket("Out", "Out") };
     }
 
-    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         var list = new List<IBasicWorkItem>();
         foreach(var item in inputs[Inputs[0]])
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var mutable = (MutableWorkItem)item; // No clone here, we modify "in place" (which should be a clone from Warehouse)
             mutable.Value = _newValue;
             list.Add(mutable);
@@ -383,12 +402,16 @@ public class InspectorBlock : MockBlock
             Inputs = new List<Socket> { new Socket("In", "In") };
     }
 
-    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         if(inputs.TryGetValue(Inputs[0], out var list))
         {
             // Clone again to save state for assertion
-            foreach(var item in list) InspectedItems.Add((IBasicWorkItem)((ICloneable)item).Clone());
+            foreach(var item in list)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                InspectedItems.Add((IBasicWorkItem)((ICloneable)item).Clone());
+            }
         }
         return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>();
     }
@@ -407,7 +430,7 @@ public class SwitchBlock : MockBlock
         Outputs = new List<Socket> { new Socket("Out0", "Out0"), new Socket("Out1", "Out1") };
     }
 
-    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         var incoming = inputs[Inputs[0]];
         var res = new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>();
@@ -442,11 +465,12 @@ public class CallbackBlock : MockBlock
         Outputs = new List<Socket> { new Socket("Out", "Out") };
     }
 
-    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         var outList = new List<IBasicWorkItem>();
         foreach(var item in inputs[Inputs[0]])
         {
+            cancellationToken.ThrowIfCancellationRequested();
             outList.Add(_action(item));
         }
         return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>> { { Outputs[0], outList } };

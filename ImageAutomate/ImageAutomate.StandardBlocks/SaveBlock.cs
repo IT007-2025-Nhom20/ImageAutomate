@@ -144,17 +144,32 @@ public class SaveBlock : IBlock, IShipmentSink
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
-        return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value));
+        return Execute(inputs, CancellationToken.None);
+    }
+
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
+        IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
+    {
+        return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value), cancellationToken);
     }
 
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
+        return Execute(inputs, CancellationToken.None);
+    }
+
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
+        IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
+    {
         if (!inputs.TryGetValue(_inputs[0].Id, out var inItems))
             throw new ArgumentException($"Input items not found for the expected input socket {_inputs[0].Id}.", nameof(inputs));
 
         foreach (var workItem in inItems.OfType<WorkItem>())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             SaveImage(workItem);
+        }
 
         // Sink block; does not emit new WorkItem list
         return new Dictionary<Socket, IReadOnlyList<IBasicWorkItem>>();
