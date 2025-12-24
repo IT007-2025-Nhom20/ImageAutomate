@@ -118,7 +118,7 @@ public class ConvertBlock : IBlock
                 ImageFormat.Qoi => $"Include Alpha: {QoiOptions.IncludeAlpha}",
                 _ => "Options: Default"
             };
-            return $"Format: {TargetFormat}\nRe-encode: {AlwaysEncode}\nConfiguration:{optionSummaries}";
+            return $"Format: {TargetFormat}\nRe-encode: {AlwaysEncode}\n{optionSummaries}";
         }
     }
 

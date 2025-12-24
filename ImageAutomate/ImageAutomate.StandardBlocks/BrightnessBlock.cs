@@ -31,7 +31,7 @@ public class BrightnessBlock : IBlock
 
     public string Title => "Brightness";
 
-    public string Content => $"Bright amount: {Bright}";
+    public string Content => $"Brightness: {Bright}";
 
     #endregion
 

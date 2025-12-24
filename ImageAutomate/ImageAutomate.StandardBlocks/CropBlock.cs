@@ -59,12 +59,12 @@ public class CropBlock : IBlock
             if (CropMode is CropModeOption.Rectangle)
                 return $"Crop Mode: {CropMode}\n" +
                        $"Left: {X} Top: {Y}\n" +
-                       $"Widht: {CropWidth} Height: {CropHeight}\n" +
-                       $"Anchor Position: {AnchorPosition}\n";
+                       $"Width: {CropWidth} Height: {CropHeight}\n" +
+                       $"Anchor Position: {AnchorPosition}";
 
             return $"Crop Mode: {CropMode}\n" +
-                   $"Widht: {CropWidth} Height: {CropHeight}\n" +
-                   $"Anchor Position: {AnchorPosition}\n";
+                   $"Width: {CropWidth} Height: {CropHeight}\n" +
+                   $"Anchor Position: {AnchorPosition}";
         }
     }
 
