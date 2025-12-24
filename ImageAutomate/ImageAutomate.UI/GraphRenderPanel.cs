@@ -4,17 +4,20 @@
  * Panel-based control for rendering pipeline graph
  */
 
-using Microsoft.Msagl.Core.Geometry.Curves;
-using Microsoft.Msagl.Layout.Layered;
 using System.ComponentModel;
 using System.Drawing.Drawing2D;
 using ImageAutomate.Core;
-using GeomNode = Microsoft.Msagl.Core.Layout.Node;
-using GeomGraph = Microsoft.Msagl.Core.Layout.GeometryGraph;
-using GeomEdge = Microsoft.Msagl.Core.Layout.Edge;
-using MsaglPoint = Microsoft.Msagl.Core.Geometry.Point;
 
 namespace ImageAutomate.UI;
+
+/// <summary>
+/// Represents a hit test result on a socket within a block.
+/// </summary>
+/// <param name="Block">The block being hit</param>
+/// <param name="Socket">The socket being hit</param>
+/// <param name="IsInput">Is the socket Input</param>
+/// <param name="Position">Exact mouse position of the hit</param>
+public record SocketHit(IBlock Block, Socket Socket, bool IsInput, PointF Position);
 
 /// <summary>
 /// Custom panel for rendering and interacting with a pipeline graph. Supports node visualization, layout,
@@ -32,6 +35,7 @@ public class GraphRenderPanel : Panel
     [Category("Node Appearance")]
     [Description("Outline color for the selected block")]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
+    [DefaultValue(typeof(Color), "Red")]
     public Color SelectedBlockOutlineColor
     {
         get => _selectedBlockOutlineColor;
@@ -46,6 +50,7 @@ public class GraphRenderPanel : Panel
     [Category("Node Appearance")]
     [Description("Connection socket size")]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
+    [DefaultValue(6d)]
     public double SocketRadius
     {
         get => _socketRadius;
@@ -57,37 +62,10 @@ public class GraphRenderPanel : Panel
     }
     private double _socketRadius = 6;
 
-    [Category("Graph Layout")]
-    [Description("Spacing between columns (layers) in the graph")]
-    [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
-    public double ColumnSpacing
-    {
-        get => _columnSpacing;
-        set
-        {
-            _columnSpacing = value;
-            Invalidate();
-        }
-    }
-    private double _columnSpacing = 250;
-
-    [Category("Graph Layout")]
-    [Description("Vertical spacing between nodes in the same layer")]
-    [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
-    public double NodeSpacing
-    {
-        get => _nodeSpacing;
-        set
-        {
-            _nodeSpacing = value;
-            Invalidate();
-        }
-    }
-    private double _nodeSpacing = 30;
-
     [Category("Graph Appearance")]
     [Description("Node render scale factor")]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
+    [DefaultValue(1.0f)]
     public float RenderScale
     {
         get => _renderScale;
@@ -105,33 +83,50 @@ public class GraphRenderPanel : Panel
     [DefaultValue(false)]
     public bool AllowOutOfScreenPan { get; set; } = false;
 
+    [Category("Graph Behavior")]
+    [Description("Auto-snap zone width")]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
+    [DefaultValue(20f)]
+    public float AutoSnapZoneWidth { get; set; } = 20f;
+
     #endregion
 
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-    public PipelineGraph? Graph
+    public Workspace? Workspace
     {
-        get => _graph;
+        get => _workspace;
         set
         {
-            if (_graph != null)
-                _graph.GraphChanged -= OnGraphChangedRecompute;
-            _graph = value;
-            if (_graph != null)
-            {
-                _graph.GraphChanged += OnGraphChangedRecompute;
-                ComputeLayout();
-                CenterCameraOnGraph();
-            }
+            _workspace = value;
+            Invalidate();
         }
     }
+    private Workspace? _workspace;
 
-    private PipelineGraph? _graph;
-    private GeomGraph _geomGraph = new();
-    private Dictionary<IBlock, GeomNode> _blockToNodeMap = new();
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public PipelineGraph? Graph => _workspace?.Graph;
+
     private PointF _panOffset = new(0, 0);
     private Point _lastMousePos;
+
+    #region Interaction States
     private bool _isPanning;
+    private bool _isDraggingNode;
+    private IBlock? _draggedNode;
+    private PointF _dragStartNodePos;
     private Point _mouseDownLocation;
+
+    private bool _isConnecting;
+    private SocketHit? _dragStartSocket;
+    private PointF _currentMouseWorldPos;
+    #endregion
+
+    #region Cursors
+    private Cursor _panCursor = Cursors.SizeAll;
+    private Cursor _dragCursor = Cursors.Hand;
+    private Cursor _connectCursor = Cursors.Cross;
+    #endregion
+
     private const int ClickDragThreshold = 5; // pixels
 
     public GraphRenderPanel()
@@ -139,12 +134,14 @@ public class GraphRenderPanel : Panel
         DoubleBuffered = true;
         BackColor = Color.White;
 
-        Resize += (_, _) => Invalidate();
-        MouseDown += OnMouseDownPan;
-        MouseMove += OnMouseMovePan;
-        MouseUp += OnMouseUpPan;
-        MouseWheel += OnMouseWheelZoom;
+        Resize += OnResize;
+        MouseDown += OnMouseDown;
+        MouseMove += OnMouseMove;
+        MouseUp += OnMouseUp;
+        MouseWheel += OnMouseWheel;
     }
+
+    #region Public API
 
     /// <summary>
     /// Adds the specified blocks to the graph if not already present and connects the
@@ -160,19 +157,29 @@ public class GraphRenderPanel : Panel
     /// destination socket is not present in the destination block's Inputs collection.</exception>
     public void AddBlockAndConnect(IBlock sourceBlock, Socket sourceSocket, IBlock destBlock, Socket destSocket)
     {
-        if (_graph == null)
+        ArgumentNullException.ThrowIfNull(sourceBlock);
+        ArgumentNullException.ThrowIfNull(destBlock);
+        ArgumentNullException.ThrowIfNull(sourceSocket);
+        ArgumentNullException.ThrowIfNull(destSocket);
+
+        if (Graph == null)
             return;
-        if (!_graph.Blocks.Contains(sourceBlock))
-            _graph.AddBlock(sourceBlock);
-        if (!_graph.Blocks.Contains(destBlock))
-            _graph.AddBlock(destBlock);
+
+        if (!Graph.Nodes.Contains(sourceBlock))
+            Graph.AddBlock(sourceBlock);
+
+        if (!Graph.Nodes.Contains(destBlock))
+            Graph.AddBlock(destBlock);
+
         // TODO: Implement proper exception type for mismatching block and socket.
         // Note: Temporary solution using ArgumentException.
         if (!sourceBlock.Outputs.Contains(sourceSocket))
             throw new ArgumentException($"Invalid socket {sourceSocket.Id} for block {sourceBlock.Name}", nameof(sourceSocket));
+
         if (!destBlock.Inputs.Contains(destSocket))
             throw new ArgumentException($"Invalid socket {destSocket.Id} for block {destBlock.Name}", nameof(destSocket));
-        _graph.Connect(sourceBlock, sourceSocket, destBlock, destSocket);
+
+        Graph.AddEdge(sourceBlock, sourceSocket, destBlock, destSocket);
 
         Invalidate();
     }
@@ -186,13 +193,17 @@ public class GraphRenderPanel : Panel
     /// <param name="destSocket">The socket in the destination block to which the connection is made.</param>
     public void AddSuccessor(Socket sourceSocket, IBlock destBlock, Socket destSocket)
     {
-        if (_graph is null)
+        ArgumentNullException.ThrowIfNull(destBlock);
+        ArgumentNullException.ThrowIfNull(sourceSocket);
+        ArgumentNullException.ThrowIfNull(destSocket);
+
+        if (Graph?.SelectedItem is null)
             return;
-        if (_graph.Center is null)
-            return;
-        AddBlockAndConnect(_graph.Center, sourceSocket, destBlock, destSocket);
+
+        if (Graph.SelectedItem is IBlock selectBlock)
+            AddBlockAndConnect(selectBlock, sourceSocket, destBlock, destSocket);
     }
-    
+
     /// <summary>
     /// Connects the specified source block to the Selected block of the graph
     /// </summary>
@@ -202,90 +213,286 @@ public class GraphRenderPanel : Panel
     /// <param name="destSocket">The socket on the center block that will be connected to the source block.</param>
     public void AddPredecessor(IBlock sourceBlock, Socket sourceSocket, Socket destSocket)
     {
-        if (_graph is null)
+        ArgumentNullException.ThrowIfNull(sourceBlock);
+        ArgumentNullException.ThrowIfNull(sourceSocket);
+        ArgumentNullException.ThrowIfNull(destSocket);
+
+        if (Graph?.SelectedItem is null)
             return;
-        if (_graph.Center is null)
-            return;
-        AddBlockAndConnect(sourceBlock, sourceSocket, _graph.Center, destSocket);
+
+        if (Graph.SelectedItem is IBlock selectBlock)
+            AddBlockAndConnect(sourceBlock, sourceSocket, selectBlock, destSocket);
     }
 
     /// <summary>
-    /// Centers the camera view on the current graph
+    /// Gets the world coordinates of the center point of the current viewport.
     /// </summary>
-    /// <remarks>This method has no effect if there is no graph loaded. After centering, the view is redrawn.
-    /// Calling this method is useful after loading a new graph or when the graph's
-    /// layout changes.</remarks>
-    public void CenterCameraOnGraph()
+    /// <returns>The world coordinates corresponding to the center of the viewport.</returns>
+    public PointF GetViewportCenterWorld()
     {
-        if (_graph == null)
+        return ScreenToWorld(new Point(Width / 2, Height / 2));
+    }
+
+    /// <summary>
+    /// Deletes the specified block from the graph.
+    /// </summary>
+    /// <param name="block">Block to remove</param>
+    public void DeleteBlock(IBlock block)
+    {
+        ArgumentNullException.ThrowIfNull(block);
+
+        if (Graph?.SelectedItem == null)
             return;
-        var bounds = _geomGraph.BoundingBox;
 
-        var node = _geomGraph.Nodes.FirstOrDefault(n => n.UserData == _graph.Center);
-        if (node == null)
-            return;
-
-        float wx = (float)node.Center.X;
-        float wy = (float)node.Center.Y;
-
-        _panOffset.X = -wx * _renderScale;
-        _panOffset.Y = wy * _renderScale;
+        Graph.RemoveNode(block);
 
         Invalidate();
     }
 
-    #region Private method
-
-    private void OnMouseDownPan(object? sender, MouseEventArgs e)
+    /// <summary>
+    /// Deletes the specified connection from the graph.
+    /// </summary>
+    /// <param name="connection">Connection to remove</param>
+    public void DeleteConnection(Core.Connection connection)
     {
-        if (e.Button == MouseButtons.Left)
+        ArgumentNullException.ThrowIfNull(connection);
+        if (Graph == null)
+            return;
+
+        Graph.RemoveEdge(connection);
+
+        Invalidate();
+    }
+
+    /// <summary>
+    /// Deletes the specified item from the graph. Item must be either a Block or a Connection.
+    /// </summary>
+    /// <param name="item">item to remove</param>
+    public void DeleteItem(object item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        if (Graph == null)
+            return;
+
+        if (item is IBlock block)
+            Graph.RemoveNode(block);
+        else if (item is Core.Connection conn)
+            Graph.RemoveEdge(conn);
+        else
+            throw new ArgumentException("Item must be either a Block or a Connection", nameof(item));
+
+        Invalidate();
+    }
+
+    /// <summary>
+    /// Deletes the currently selected item from the graph.
+    /// </summary>
+    public void DeleteSelectedItem()
+    {
+        if (Graph?.SelectedItem == null)
+            return;
+
+        var selected = Graph.SelectedItem;
+
+        if (selected is IBlock block)
+            Graph.RemoveNode(block);
+        else if (selected is Core.Connection conn)
+            Graph.RemoveEdge(conn);
+
+        Invalidate();
+    }
+
+    #endregion
+
+
+    #region Implicit Event Handlers
+
+    private void OnResize(object? sender, EventArgs e)
+    {
+        Invalidate();
+    }
+
+    private void OnMouseDown(object? sender, MouseEventArgs e)
+    {
+        if (Graph == null)
+            return;
+        
+        PointF worldPosition = ScreenToWorld(e.Location);
+        _lastMousePos = e.Location;
+        _mouseDownLocation = e.Location;
+
+        if (e.Button == MouseButtons.Right)
         {
             _isPanning = true;
-            _lastMousePos = e.Location;
-            _mouseDownLocation = e.Location;
-            Cursor = Cursors.Hand;
+            Cursor = _panCursor;
+        }
+        else if (e.Button == MouseButtons.Left)
+        {
+            // 1. Check Socket Hit (Connecting)
+            var socketHit = HitTestSocket(worldPosition);
+            if (socketHit != null)
+            {
+                _isConnecting = true;
+                _dragStartSocket = socketHit;
+                _currentMouseWorldPos = worldPosition;
+                Cursor = _connectCursor;
+                Invalidate();
+                return;
+            }
+
+            // 2. Check Node Hit (Selection / Dragging)
+            var hitNode = Workspace?.HitTestNode(worldPosition.X, worldPosition.Y);
+            if (hitNode != null)
+            {
+                Graph.BringToTop(hitNode);
+                Graph.SelectedItem = hitNode;
+                var blockPos = Workspace?.ViewState.GetBlockPosition(hitNode)
+                    ?? throw new InvalidOperationException("Block position not found in ViewState.");
+
+                _isDraggingNode = true;
+                _draggedNode = hitNode;
+                _dragStartNodePos = new PointF((float)blockPos.X, (float)blockPos.Y);
+                Cursor = _dragCursor;
+                Invalidate();
+                return;
+            }
+
+            // 3. Check Edge Hit (Selection)
+            var hitEdge = HitTestEdge(worldPosition);
+            if (hitEdge != null)
+            {
+                Graph.SelectedItem = hitEdge;
+                Invalidate();
+                return;
+            }
+
+            // 4. Hit Background (Deselect)
+            Graph.SelectedItem = null;
+            Invalidate();
         }
     }
 
-    private void OnMouseUpPan(object? sender, MouseEventArgs e)
+    private void OnMouseUp(object? sender, MouseEventArgs e)
     {
-        if (e.Button == MouseButtons.Left)
+        if (_isPanning && e.Button == MouseButtons.Right)
         {
             _isPanning = false;
             Cursor = Cursors.Default;
+        }
 
-            // Check hold-to-click threshold
-            float deltaX = Math.Abs(e.X - _mouseDownLocation.X);
-            float deltaY = Math.Abs(e.Y - _mouseDownLocation.Y);
+        if (_isDraggingNode && e.Button == MouseButtons.Left)
+        {
+            _isDraggingNode = false;
+            _draggedNode = null;
+            Cursor = Cursors.Default;
+        }
 
-            if (deltaX < ClickDragThreshold && deltaY < ClickDragThreshold)
+        if (_isConnecting && e.Button == MouseButtons.Left)
+        {
+            // End Connection Drag
+            PointF worldPos = ScreenToWorld(e.Location);
+            var socketHit = HitTestSocket(worldPos);
+
+            if (socketHit != null && _dragStartSocket != null)
             {
-                HandleMouseClick(e.Location);
+                // Validate Connection
+                bool valid = true;
+
+                if (socketHit.Block == _dragStartSocket.Block)
+                    valid = false;
+
+                if (socketHit.IsInput == _dragStartSocket.IsInput)
+                    valid = false;
+                    
+                if (Graph == null)
+                    valid = false;
+
+                if (valid)
+                {
+                    IBlock source, target;
+                    Socket sourceSocket, targetSocket;
+
+                    if (_dragStartSocket.IsInput)
+                    {
+                        target = _dragStartSocket.Block;
+                        targetSocket = _dragStartSocket.Socket;
+                        source = socketHit.Block;
+                        sourceSocket = socketHit.Socket;
+                    }
+                    else
+                    {
+                        source = _dragStartSocket.Block;
+                        sourceSocket = _dragStartSocket.Socket;
+                        target = socketHit.Block;
+                        targetSocket = socketHit.Socket;
+                    }
+
+                    // Prevent duplicate edges
+                    bool exists = Graph!.Edges.Any(edge =>
+                        edge.Source == source && edge.SourceSocket == sourceSocket &&
+                        edge.Target == target && edge.TargetSocket == targetSocket);
+
+                    if (!exists)
+                    {
+                        Graph.AddEdge(source, sourceSocket, target, targetSocket);
+                    }
+                }
             }
+
+            _isConnecting = false;
+            _dragStartSocket = null;
+            Cursor = Cursors.Default;
+            Invalidate();
         }
     }
 
-    private void OnMouseMovePan(object? sender, MouseEventArgs e)
+    private void OnMouseMove(object? sender, MouseEventArgs e)
     {
-        if (!_isPanning)
-            return;
-
-        // Calculate delta in screen pixels
         float dx = e.X - _lastMousePos.X;
         float dy = e.Y - _lastMousePos.Y;
 
-        _panOffset.X += dx;
-        _panOffset.Y += dy;
+        PointF worldPosition = ScreenToWorld(e.Location);
 
-        ClampPanToBounds();
+        // Hover Feedback Logic
+        // If not dragging, check if over edge to change cursor
+        if (!_isPanning && !_isDraggingNode && !_isConnecting)
+        {
+            var hitEdge = HitTestEdge(worldPosition);
+            Cursor = hitEdge != null ? Cursors.Hand : Cursors.Default;
+        }
+
+        if (_isPanning)
+        {
+            _panOffset.X += dx;
+            _panOffset.Y += dy;
+            Invalidate();
+        }
+        else if (_isDraggingNode && _draggedNode != null)
+        {
+            float worldDx = dx / _renderScale;
+            float worldDy = dy / _renderScale;
+
+            Workspace?
+                .ViewState
+                .SetBlockPosition(_draggedNode, new Position(
+                    _dragStartNodePos.X + worldDx,
+                    _dragStartNodePos.Y + worldDy));
+
+            Invalidate();
+        }
+        else if (_isConnecting)
+        {
+            _currentMouseWorldPos = worldPosition;
+            Invalidate();
+        }
 
         _lastMousePos = e.Location;
-        Invalidate();
     }
 
-    private void OnMouseWheelZoom(object? sender, MouseEventArgs e)
+    private void OnMouseWheel(object? sender, MouseEventArgs e)
     {
-        // Zoom logic
+        // TODO: Move this out as configurable property
         const float zoomFactor = 1.1f;
         float oldScale = _renderScale;
 
@@ -294,22 +501,178 @@ public class GraphRenderPanel : Panel
         else
             _renderScale /= zoomFactor;
 
-        // Clamp scale
         _renderScale = Math.Max(0.1f, Math.Min(_renderScale, 5.0f));
 
-        // Zoom towards mouse pointer
-        float mouseX = e.X - Width / 2.0f;
-        float mouseY = e.Y - Height / 2.0f;
+        float mouseX = e.X;
+        float mouseY = e.Y;
 
         float worldX = (mouseX - _panOffset.X) / oldScale;
-        float worldY = (mouseY - _panOffset.Y) / -oldScale;
+        float worldY = (mouseY - _panOffset.Y) / oldScale;
 
         _panOffset.X = mouseX - (worldX * _renderScale);
-        _panOffset.Y = mouseY - (worldY * -_renderScale);
-
-        ClampPanToBounds();
+        _panOffset.Y = mouseY - (worldY * _renderScale);
 
         Invalidate();
+    }
+
+    private void OnPaint_m(PaintEventArgs e)
+    {
+        if (Graph == null)
+            return;
+
+        var viewState = Workspace?.ViewState;
+
+        Graphics g = e.Graphics;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+        using Matrix transform = new();
+        transform.Translate(_panOffset.X, _panOffset.Y);
+        transform.Scale(_renderScale, _renderScale);
+        g.Transform = transform;
+
+        // Draw Connections
+        foreach (var edge in Graph.Edges)
+        {
+            var sourcePos = viewState?.GetBlockPosition(edge.Source)
+                ?? throw new InvalidOperationException("Block position not found in ViewState.");
+            var sourceSize = viewState?.GetBlockSize(edge.Source)
+                ?? throw new InvalidOperationException("Block size not found in ViewState.");
+            var targetPos = viewState?.GetBlockPosition(edge.Target)
+                ?? throw new InvalidOperationException("Block position not found in ViewState.");
+            var targetSize = viewState?.GetBlockSize(edge.Target)
+                ?? throw new InvalidOperationException("Block size not found in ViewState.");
+            bool isSelected = Graph.SelectedItem is Connection conn
+                && edge == conn;
+            NodeRenderer.Instance.DrawEdge(g, sourcePos, sourceSize, targetPos, targetSize, isSelected, _socketRadius);
+        }
+
+        // Draw Pending Connection Drag
+        if (_isConnecting && _dragStartSocket != null)
+        {
+            NodeRenderer.Instance.DrawDragEdge(g, _dragStartSocket.Position, _currentMouseWorldPos);
+        }
+
+        // Draw Nodes
+        foreach (var block in Graph.Nodes)
+        {
+            var blockPos = viewState?.GetBlockPosition(block)
+                ?? throw new InvalidOperationException("Block position not found in ViewState.");
+            var blockSize = viewState?.GetBlockSize(block)
+                ?? throw new InvalidOperationException("Block size not found in ViewState.");
+            bool isSelected = block == Graph.SelectedItem;
+            NodeRenderer.Instance.DrawNode(g, block, blockPos, blockSize, isSelected, _selectedBlockOutlineColor, _socketRadius);
+        }
+
+        g.ResetTransform();
+    }
+
+    #endregion
+
+    #region Private Methods
+
+    private static float DistanceSq(PointF p1, PointF p2)
+    {
+        return (p1.X - p2.X) * (p1.X - p2.X) + (p1.Y - p2.Y) * (p1.Y - p2.Y);
+    }
+
+    private SocketHit? HitTestSocket(PointF worldPos)
+    {
+        if (Graph == null)
+            return null;
+
+        var viewState = Workspace?.ViewState;
+
+        // Reverse order to match top-down visual
+        foreach (var block in Graph.Nodes.Reverse())
+        {
+            Position blockPos = viewState?.GetBlockPosition(block)
+                ?? throw new InvalidOperationException("Block position not found in ViewState.");
+            Core.Size blockSize = viewState?.GetBlockSize(block)
+                ?? throw new InvalidOperationException("Block size not found in ViewState.");
+
+            // Check Input Zone (Left Side)
+            if (block.Inputs.Count > 0)
+            {
+
+                RectangleF inputZone = new(
+                    (float)blockPos.X - AutoSnapZoneWidth / 2,
+                    (float)blockPos.Y,
+                    AutoSnapZoneWidth,
+                    blockSize.Height);
+
+                if (inputZone.Contains(worldPos))
+                {
+                    // Return first input (Assuming single input for PoC)
+                    // If multiple, would find closest Y
+                    return new SocketHit(block, block.Inputs[0], true, NodeRenderer.GetSocketPosition(blockPos, blockSize, true));
+                }
+
+                // Also check strict circle for precision if outside zone (e.g. just slightly off)
+                var pos = NodeRenderer.GetSocketPosition(blockPos, blockSize, true);
+                if (DistanceSq(worldPos, pos) <= _socketRadius * _socketRadius * 4)
+                {
+                    return new SocketHit(block, block.Inputs[0], true, pos);
+                }
+            }
+
+            // Check Output Zone (Right Side)
+            if (block.Outputs.Count > 0)
+            {
+                RectangleF outputZone = new(
+                    (float)(blockPos.X + blockSize.Width) - AutoSnapZoneWidth / 2,
+                    (float)blockPos.Y,
+                    AutoSnapZoneWidth,
+                    blockSize.Height);
+
+                if (outputZone.Contains(worldPos))
+                {
+                    return new SocketHit(block, block.Outputs[0], false, NodeRenderer.GetSocketPosition(blockPos, blockSize, false));
+                }
+
+                var pos = NodeRenderer.GetSocketPosition(blockPos, blockSize, false);
+                if (DistanceSq(worldPos, pos) <= _socketRadius * _socketRadius * 4)
+                {
+                    return new SocketHit(block, block.Outputs[0], false, pos);
+                }
+            }
+        }
+        return null;
+    }
+
+    private Connection? HitTestEdge(PointF worldPosition)
+    {
+        if (Graph == null)
+            return null;
+
+        // Check edges. Order might matter if they overlap, but usually doesn't.
+        using Pen hitPen = new Pen(Color.Black, 10); // Wide pen for hit testing
+
+        foreach (var edge in Graph.Edges)
+        {
+            var sourcePos = Workspace?.ViewState.GetBlockPosition(edge.Source)
+                ?? throw new InvalidOperationException("Block position not found in ViewState.");
+            var sourceSize = Workspace?.ViewState.GetBlockSize(edge.Source)
+                ?? throw new InvalidOperationException("Block size not found in ViewState.");
+            var targetPos = Workspace?.ViewState.GetBlockPosition(edge.Target)
+                ?? throw new InvalidOperationException("Block position not found in ViewState.");
+            var targetSize = Workspace?.ViewState.GetBlockSize(edge.Target)
+                ?? throw new InvalidOperationException("Block size not found in ViewState.");
+            using var path = NodeRenderer.GetEdgePath(sourcePos, sourceSize, targetPos, targetSize);
+            if (path.IsOutlineVisible(worldPosition, hitPen))
+            {
+                return edge;
+            }
+        }
+        return null;    
+    }
+
+    private PointF ScreenToWorld(Point screenPoint)
+    {
+        return new PointF(
+            (screenPoint.X - _panOffset.X) / _renderScale,
+            (screenPoint.Y - _panOffset.Y) / _renderScale
+        );
     }
 
     private Matrix GetWorldToScreenMatrix()
@@ -325,175 +688,22 @@ public class GraphRenderPanel : Panel
         return matrix;
     }
 
-    private void HandleMouseClick(Point screenPoint)
+    private void CenterCameraOnBlock(IBlock block)
     {
-        if (_graph == null) return;
+        var blockPos = Workspace?.ViewState.GetBlockPosition(block)
+            ?? throw new InvalidOperationException("Block position not found in ViewState.");
+        var blockSize = Workspace?.ViewState.GetBlockSize(block)
+            ?? throw new InvalidOperationException("Block size not found in ViewState.");
+        float screenCX = Width / 2.0f;
+        float screenCY = Height / 2.0f;
 
-        using Matrix matrix = GetWorldToScreenMatrix();
+        float blockCX = (float)(blockPos.X + blockSize.Width / 2);
+        float blockCY = (float)(blockPos.Y + blockSize.Height / 2);
 
-        // Invert screen matrix to get Screen -> World
-        // Scale clamped to 0.1f prevents Invert from throwing, so check is not needed.
-        matrix.Invert();
+        _panOffset.X = screenCX - blockCX * _renderScale;
+        _panOffset.Y = screenCY - blockCY * _renderScale;
 
-        PointF[] points = { new(screenPoint.X, screenPoint.Y) };
-        matrix.TransformPoints(points);
-        float worldX = points[0].X;
-        float worldY = points[0].Y;
-
-        // Hit Test against MSAGL nodes
-        foreach (var node in _geomGraph.Nodes)
-        {
-            // MSAGL BoundingBox check
-            if (worldX >= node.BoundingBox.Left &&
-                worldX <= node.BoundingBox.Right &&
-                worldY >= node.BoundingBox.Bottom &&
-                worldY <= node.BoundingBox.Top)
-            {
-                if (node.UserData is IBlock block)
-                {
-                    _graph.Center = block;
-                    return;
-                }
-            }
-        }
-    }
-
-    private void ClampPanToBounds()
-    {
-        if (AllowOutOfScreenPan || _graph == null)
-            return;
-
-        var bounds = _geomGraph.BoundingBox;
-
-        float cx = Width / 2.0f + _panOffset.X;
-        float cy = Height / 2.0f + _panOffset.Y;
-
-        float wx1 = (float)bounds.Left;
-        float wx2 = (float)bounds.Right;
-        float wy1 = (float)bounds.Bottom;
-        float wy2 = (float)bounds.Top;
-
-        float sx1 = wx1 * _renderScale + cx;
-        float sx2 = wx2 * _renderScale + cx;
-        float sy1 = wy1 * -_renderScale + cy;
-        float sy2 = wy2 * -_renderScale + cy;
-
-        float graphScreenLeft = Math.Min(sx1, sx2);
-        float graphScreenRight = Math.Max(sx1, sx2);
-        float graphScreenTop = Math.Min(sy1, sy2);
-        float graphScreenBottom = Math.Max(sy1, sy2);
-
-        float margin = 30;
-
-        if (graphScreenRight < margin)
-        {
-            float shift = margin - graphScreenRight;
-            _panOffset.X += shift;
-        }
-        else if (graphScreenLeft > Width - margin)
-        {
-            float shift = (Width - margin) - graphScreenLeft;
-            _panOffset.X += shift;
-        }
-
-        if (graphScreenBottom < margin)
-        {
-            float shift = margin - graphScreenBottom;
-            _panOffset.Y += shift;
-        }
-        else if (graphScreenTop > Height - margin)
-        {
-            float shift = (Height - margin) - graphScreenTop;
-            _panOffset.Y += shift;
-        }
-    }
-
-    private void RebuildVisualGraph()
-    {
-        _geomGraph = new GeomGraph();
-        _blockToNodeMap.Clear();
-
-        if (_graph == null) return;
-
-        foreach (var block in _graph.Blocks)
-        {
-            var geomNode = new GeomNode(
-                CurveFactory.CreateRectangle(block.Width, block.Height, new MsaglPoint(0, 0))
-            )
-            {
-                UserData = block
-            };
-
-            _geomGraph.Nodes.Add(geomNode);
-            _blockToNodeMap[block] = geomNode;
-        }
-
-        foreach (var conn in _graph.Connections)
-        {
-            if (_blockToNodeMap.TryGetValue(conn.Source, out var sourceNode) &&
-                _blockToNodeMap.TryGetValue(conn.Target, out var targetNode))
-            {
-                // TODO: model Sockets in MSAGL. Currently NodeRenderer
-                // handles the socket visual positions.
-                var edge = new GeomEdge(sourceNode, targetNode);
-                _geomGraph.Edges.Add(edge);
-            }
-        }
-    }
-
-    private void ComputeLayout()
-    {
-        if (_graph == null)
-            return;
-
-        RebuildVisualGraph();
-
-        var settings = new SugiyamaLayoutSettings
-        {
-            Transformation = PlaneTransformation.Rotation(Math.PI / 2),
-            LayerSeparation = _columnSpacing,
-            NodeSeparation = _nodeSpacing,
-            EdgeRoutingSettings = { EdgeRoutingMode = Microsoft.Msagl.Core.Routing.EdgeRoutingMode.None },
-            RandomSeedForOrdering = 0
-        };
-
-        var layout = new LayeredLayout(_geomGraph, settings);
-        layout.Run();
-    }
-
-    private void OnGraphChangedRecompute(object? sender, EventArgs args)
-    {
-        ComputeLayout();
         Invalidate();
-    }
-
-    protected override void OnPaint(PaintEventArgs e)
-    {
-        base.OnPaint(e);
-
-        if (_graph == null || _geomGraph.Nodes.Count == 0)
-            return;
-
-        Graphics g = e.Graphics;
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-
-        // Use the centralized matrix helper
-        using (Matrix transform = GetWorldToScreenMatrix())
-        {
-            g.Transform = transform;
-
-            // ... Drawing logic (DrawEdge, DrawNode) remains the same ...
-            foreach (var geomEdge in _geomGraph.Edges)
-                NodeRenderer.Instance.DrawEdge(g, geomEdge, _socketRadius);
-
-            foreach (var geomNode in _geomGraph.Nodes)
-            {
-                bool selected = geomNode.UserData is IBlock block && block == _graph.Center;
-                NodeRenderer.Instance.DrawNodeOptimized(g, geomNode, selected, _selectedBlockOutlineColor, _socketRadius);
-            }
-        }
-        g.ResetTransform();
     }
     #endregion
 }
