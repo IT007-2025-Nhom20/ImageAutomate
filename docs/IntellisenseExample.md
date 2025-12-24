@@ -5,6 +5,7 @@ When you open a workspace JSON file with the `$schema` property in VS Code or Vi
 ## 1. Auto-Completion
 
 Type `"` inside the root object and you'll see suggestions for:
+
 - `$schema`
 - `version`
 - `name`
@@ -36,6 +37,7 @@ Hover over any property name to see its description:
 ## 5. Type Checking
 
 The editor will show errors if you provide wrong types:
+
 - ❌ `"zoom": "1.5"` (string instead of number)
 - ✅ `"zoom": 1.5` (correct)
 
@@ -43,24 +45,24 @@ The editor will show errors if you provide wrong types:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/IT007-2025-Nhom20/ImageAutomate/main/docs/workspace-schema.json",
-  "version": "1.0",
-  "name": "My Workspace",
-  "graph": {
-    "blocks": [
-      {
-        "blockType": "LoadBlock",  // <-- Shows dropdown with all block types
-        "width": 200,              // <-- Must be number >= 50
-        "height": 100              // <-- Must be number >= 50
-      }
-    ]
-  },
-  "viewState": {
-    "zoom": 1.25,                  // <-- Must be between 0.1 and 10.0
-    "panX": 0.0,
-    "panY": 0.0
-  }
+    "$schema": "https://raw.githubusercontent.com/IT007-2025-Nhom20/ImageAutomate/project-restructure/docs/workspace-schema.json",
+    "version": "1.0",
+    "name": "My Workspace",
+    "graph": {
+          "blocks": [
+            {
+                "blockType": "LoadBlock",  // <-- Shows dropdown with all block types
+                "width": 200,              // <-- Must be number >= 50
+                "height": 100              // <-- Must be number >= 50
+            }
+        ]
+    },
+    "viewState": {
+        "zoom": 1.25,                  // <-- Must be between 0.1 and 10.0
+        "panX": 0.0,
+        "panY": 0.0
+    }
 }
 ```
 
-All of this happens automatically when the `$schema` property is present!
+All of this happens automatically when the `$schema` property is present.

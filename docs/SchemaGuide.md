@@ -10,10 +10,10 @@ Add a `$schema` property at the top of your workspace JSON file:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/IT007-2025-Nhom20/ImageAutomate/main/docs/workspace-schema.json",
-  "version": "1.0",
-  "name": "My Workspace",
-  ...
+    "$schema": "https://raw.githubusercontent.com/IT007-2025-Nhom20/ImageAutomate/project-restructure/docs/workspace-schema.json",
+    "version": "1.0",
+    "name": "My Workspace",
+    ...
 }
 ```
 
@@ -21,12 +21,12 @@ Or configure VS Code's `settings.json` to automatically associate `.imageautomat
 
 ```json
 {
-  "json.schemas": [
-    {
-      "fileMatch": ["*.imageautomate"],
-      "url": "./docs/workspace-schema.json"
-    }
-  ]
+    "json.schemas": [
+        {
+            "fileMatch": ["*.imageautomate"],
+            "url": "./docs/workspace-schema.json"
+        }
+    ]
 }
 ```
 
@@ -38,7 +38,7 @@ The schema will be automatically detected if the `$schema` property is present i
 
 The schema is available at:
 - **Local**: `docs/workspace-schema.json`
-- **Remote**: `https://raw.githubusercontent.com/IT007-2025-Nhom20/ImageAutomate/main/docs/workspace-schema.json`
+- **Remote**: `https://raw.githubusercontent.com/IT007-2025-Nhom20/ImageAutomate/project-restructure/docs/workspace-schema.json`
 
 ## Why JSON instead of XML?
 

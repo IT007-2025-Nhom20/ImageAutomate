@@ -76,68 +76,68 @@ The serialized JSON has the following structure (with optional `$schema` for Int
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/IT007-2025-Nhom20/ImageAutomate/main/docs/workspace-schema.json",
-  "version": "1.0",
-  "name": "My Image Processing Project",
-  "graph": {
-    "blocks": [
-      {
-        "blockType": "LoadBlock",
-        "assemblyQualifiedName": "ImageAutomate.StandardBlocks.LoadBlock, ...",
-        "width": 200,
-        "height": 100,
-        "properties": {
-          "SourcePath": "/images",
-          "AutoOrient": true
-        },
-        "inputs": [],
-        "outputs": [
-          { "id": "Load.out", "name": "Image.out" }
-        ]
-      },
-      {
-        "blockType": "ConvertBlock",
-        "assemblyQualifiedName": "ImageAutomate.StandardBlocks.ConvertBlock, ...",
-        "width": 200,
-        "height": 100,
-        "properties": {
-          "TargetFormat": "Jpeg",
-          "AlwaysEncode": false,
-          "JpegOptions": {
-            "Quality": 90
-          }
-        },
-        "inputs": [
-          { "id": "Convert.In", "name": "Image.Input" }
+    "$schema": "https://raw.githubusercontent.com/IT007-2025-Nhom20/ImageAutomate/project-restructure/docs/workspace-schema.json",
+    "version": "1.0",
+    "name": "My Image Processing Project",
+    "graph": {
+        "blocks": [
+            {
+                "blockType": "LoadBlock",
+                "assemblyQualifiedName": "ImageAutomate.StandardBlocks.LoadBlock, ...",
+                "width": 200,
+                "height": 100,
+                "properties": {
+                    "SourcePath": "/images",
+                    "AutoOrient": true
+                },
+                "inputs": [],
+                "outputs": [
+                    { "id": "Load.out", "name": "Image.out" }
+                ]
+            },
+            {
+                "blockType": "ConvertBlock",
+                "assemblyQualifiedName": "ImageAutomate.StandardBlocks.ConvertBlock, ...",
+                "width": 200,
+                "height": 100,
+                "properties": {
+                "TargetFormat": "Jpeg",
+                "AlwaysEncode": false,
+                "JpegOptions": {
+                    "Quality": 90
+                }
+                },
+                "inputs": [
+                    { "id": "Convert.In", "name": "Image.Input" }
+                ],
+                "outputs": [
+                    { "id": "Convert.Out", "name": "Image.Out" }
+                ]
+            }
         ],
-        "outputs": [
-          { "id": "Convert.Out", "name": "Image.Out" }
-        ]
-      }
-    ],
-    "connections": [
-      {
-        "sourceBlockIndex": 0,
-        "sourceSocketId": "Load.out",
-        "targetBlockIndex": 1,
-        "targetSocketId": "Convert.In"
-      }
-    ],
-    "centerBlockIndex": null
-  },
-  "viewState": {
-    "blockPositions": {
-      "0": { "x": 100, "y": 100 },
-      "1": { "x": 400, "y": 100 }
+        "connections": [
+            {
+                "sourceBlockIndex": 0,
+                "sourceSocketId": "Load.out",
+                "targetBlockIndex": 1,
+                "targetSocketId": "Convert.In"
+            }
+        ],
+        "centerBlockIndex": null
     },
-    "zoom": 1.5,
-    "panX": 0.0,
-    "panY": 0.0
-  },
-  "metadata": {
-    "Author": "John Doe",
-    "CreatedDate": "2024-01-01T12:00:00Z"
-  }
+    "viewState": {
+        "blockPositions": {
+            "0": { "x": 100, "y": 100 },
+            "1": { "x": 400, "y": 100 }
+        },
+        "zoom": 1.5,
+        "panX": 0.0,
+        "panY": 0.0
+    },
+    "metadata": {
+        "Author": "John Doe",
+        "CreatedDate": "2024-01-01T12:00:00Z"
+    }
 }
 ```
 

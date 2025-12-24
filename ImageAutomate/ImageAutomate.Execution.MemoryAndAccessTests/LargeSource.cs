@@ -36,13 +36,14 @@ public class LargeSource : MockBlock, IShipmentSource
         Outputs = new List<Socket> { new Socket("Out", "Output") };
     }
 
-    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
+    protected override IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> ExecuteInternal(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken = default)
     {
         var outputList = new List<IBasicWorkItem>();
         int count = 0;
 
         while (count < MaxShipmentSize && _itemsProduced < _totalItemsToProduce)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             // Clone the master image for each dispatch
             var clonedImage = _masterImage.Clone();
 
