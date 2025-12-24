@@ -3,7 +3,8 @@ using System.ComponentModel;
 namespace ImageAutomate.WebPExtension;
 
 /// <summary>
-/// Configuration options for WebP image encoding.
+/// Configuration options for WebP image encoding in ImageAutomate.
+/// These options are used to configure the WebP encoder when converting images.
 /// </summary>
 [TypeConverter(typeof(ExpandableObjectConverter))]
 public class WebPOptions : INotifyPropertyChanged
@@ -12,9 +13,13 @@ public class WebPOptions : INotifyPropertyChanged
     private float _quality = 75f;
     private WebPEncodingMethod _method = WebPEncodingMethod.Default;
     private int _nearLossless = 100;
+    private bool _useAlphaCompression = true;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>
+    /// Use lossless compression. When true, ignores Quality setting.
+    /// </summary>
     [Category("WebP")]
     [Description("Use lossless compression (ignores Quality if true)")]
     [DefaultValue(false)]
@@ -26,11 +31,16 @@ public class WebPOptions : INotifyPropertyChanged
             if (_lossless != value)
             {
                 _lossless = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Lossless)));
+                OnPropertyChanged(nameof(Lossless));
+                OnPropertyChanged(nameof(FileFormat));
             }
         }
     }
 
+    /// <summary>
+    /// Quality factor (0.0 to 100.0). Higher values mean better quality but larger file size.
+    /// Only applies in lossy mode.
+    /// </summary>
     [Category("WebP")]
     [Description("Quality factor (0.0 to 100.0). Higher values mean better quality but larger file size.")]
     [DefaultValue(75f)]
@@ -44,11 +54,14 @@ public class WebPOptions : INotifyPropertyChanged
             if (_quality != value)
             {
                 _quality = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Quality)));
+                OnPropertyChanged(nameof(Quality));
             }
         }
     }
 
+    /// <summary>
+    /// WebP file format type (derived from Lossless setting).
+    /// </summary>
     [Category("WebP")]
     [Description("WebP file format type (derived from Lossless setting)")]
     [DefaultValue(WebPFileFormatType.Lossy)]
@@ -57,17 +70,19 @@ public class WebPOptions : INotifyPropertyChanged
         get => _lossless ? WebPFileFormatType.Lossless : WebPFileFormatType.Lossy;
         set
         {
-            // Update lossless based on file format
             bool newLossless = value == WebPFileFormatType.Lossless;
             if (_lossless != newLossless)
             {
                 _lossless = newLossless;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FileFormat)));
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Lossless)));
+                OnPropertyChanged(nameof(FileFormat));
+                OnPropertyChanged(nameof(Lossless));
             }
         }
     }
 
+    /// <summary>
+    /// Encoding method (quality/speed tradeoff). Higher values are slower but produce better compression.
+    /// </summary>
     [Category("WebP")]
     [Description("Encoding method (quality/speed tradeoff). Higher values are slower but produce better compression.")]
     [DefaultValue(WebPEncodingMethod.Default)]
@@ -79,11 +94,15 @@ public class WebPOptions : INotifyPropertyChanged
             if (_method != value)
             {
                 _method = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Method)));
+                OnPropertyChanged(nameof(Method));
             }
         }
     }
 
+    /// <summary>
+    /// Near lossless quality (0-100). 100 is lossless, lower values introduce more loss for smaller file size.
+    /// Only applies when Lossless is true.
+    /// </summary>
     [Category("WebP")]
     [Description("Near lossless quality (0-100). 100 is lossless, lower values introduce more loss for smaller file size.")]
     [DefaultValue(100)]
@@ -97,15 +116,39 @@ public class WebPOptions : INotifyPropertyChanged
             if (_nearLossless != value)
             {
                 _nearLossless = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NearLossless)));
+                OnPropertyChanged(nameof(NearLossless));
             }
         }
+    }
+
+    /// <summary>
+    /// Use alpha compression for images with transparency.
+    /// </summary>
+    [Category("WebP")]
+    [Description("Use alpha compression for images with transparency")]
+    [DefaultValue(true)]
+    public bool UseAlphaCompression
+    {
+        get => _useAlphaCompression;
+        set
+        {
+            if (_useAlphaCompression != value)
+            {
+                _useAlphaCompression = value;
+                OnPropertyChanged(nameof(UseAlphaCompression));
+            }
+        }
+    }
+
+    protected virtual void OnPropertyChanged(string propertyName)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
     public override string ToString()
     {
         if (Lossless)
-            return "Lossless";
+            return $"Lossless (NearLossless: {NearLossless})";
         return $"Quality: {Quality}, Method: {Method}";
     }
 }

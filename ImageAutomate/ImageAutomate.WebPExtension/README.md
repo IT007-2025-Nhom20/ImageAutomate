@@ -1,111 +1,189 @@
 # ImageAutomate WebP Format Extension
 
-This is a plugin extension for the ImageAutomate image processing framework that provides WebP format encoding capabilities.
+A proper ImageSharp format extension for WebP that integrates with ImageAutomate's format registry system.
 
 ## Overview
 
-The WebP Format Extension is a sample plugin that demonstrates how to extend ImageAutomate with new image format support. It provides a block (`WebPFormatExtension`) that can be used in image processing pipelines to convert images to the WebP format with configurable encoding options.
+This extension implements the necessary contracts to make WebP available to `ConvertBlock` and `LoadBlock` through a central format registry. It follows ImageSharp's extension protocol and provides a bridge to ImageAutomate's block system.
 
-## Features
+## Architecture
 
-- **WebP Encoding**: Convert images to WebP format with full control over encoding parameters
-- **Lossless and Lossy Modes**: Support for both lossless and lossy compression
-- **Configurable Quality**: Adjust quality settings from 0 to 100
-- **Encoding Methods**: Choose between fastest, default, and best quality encoding methods
-- **Near-Lossless Support**: Fine-tune lossless encoding with near-lossless quality settings
-- **Plugin Architecture**: Implements `IBlock` and `IPluginUnloadable` for seamless integration
+### Components
 
-## Components
+1. **WebPFormat** - Implements `IImageFormat` from ImageSharp
+   - Singleton instance providing format metadata
+   - File extensions: `.webp`
+   - MIME type: `image/webp`
 
-### WebPFormatExtension
+2. **WebPEncoder** - Implements `IImageEncoder` from ImageSharp
+   - Wraps ImageSharp's built-in `WebpEncoder`
+   - Integrates with `WebPOptions` for configuration
+   - Supports both lossy and lossless compression
 
-The main block class that processes images and applies WebP encoding metadata.
+3. **WebPDecoder** - Implements `IImageDecoder` from ImageSharp
+   - Wraps ImageSharp's built-in `WebpDecoder`
+   - Handles WebP image decoding
 
-**Properties:**
-- `Options`: WebPOptions instance containing all encoding configuration
+4. **WebPOptions** - Configuration class for ImageAutomate
+   - Lossless/Lossy mode selection
+   - Quality control (0-100)
+   - Encoding method (Fastest/Default/BestQuality)
+   - Near-lossless quality
+   - Alpha compression control
+   - Implements `INotifyPropertyChanged` for UI binding
 
-**Sockets:**
-- Input: `WebP.In` - Accepts image work items
-- Output: `WebP.Out` - Outputs processed work items with WebP encoding metadata
+5. **WebPFormatRegistration** - Registration utility
+   - Registers format with ImageSharp
+   - Registers with ImageAutomate's format registry
+   - Provides factory methods for encoder/decoder creation
 
-### WebPOptions
+6. **CoreImitation** - Simulated format registry interface
+   - Defines `IImageFormatRegistry` interface
+   - Provides dummy implementation for type checking
+   - Located in `ImageAutomate.Core` namespace (illegally, as requested)
 
-Configuration class for WebP encoding parameters.
+## Format Registry System
 
-**Properties:**
-- `Lossless` (bool): Enable lossless compression (default: false)
-- `Quality` (float): Quality factor 0.0-100.0 (default: 75)
-- `FileFormat` (enum): Lossy or Lossless format type
-- `Method` (enum): Encoding method - Fastest, Default, or BestQuality
-- `NearLossless` (int): Near-lossless quality 0-100 (default: 100)
+The format registry provides a central mapping of:
+- Format Name → IImageFormat
+- Format Name → Encoder Factory (with options)
+- Format Name → Decoder Factory
+
+This allows blocks like `ConvertBlock` and `LoadBlock` to:
+1. Discover available formats
+2. Get appropriate encoders with options
+3. Get appropriate decoders
+4. Map file extensions to formats
 
 ## Usage
 
-### As a Plugin
-
-1. Build the project:
-   ```bash
-   dotnet build ImageAutomate.WebPExtension.csproj -c Release
-   ```
-
-2. The compiled DLL can be loaded as a plugin in the ImageAutomate application through the Plugin Manager.
-
-3. Once loaded, the WebP Format block will be available in the block palette and can be added to processing pipelines.
-
-### In Code
+### Registration
 
 ```csharp
 using ImageAutomate.WebPExtension;
 using ImageAutomate.Core;
 
-// Create the extension
-var webpExtension = new WebPFormatExtension();
+// Create or get the format registry
+var registry = new ImageFormatRegistry();
 
-// Configure options
-webpExtension.Options.Lossless = false;
-webpExtension.Options.Quality = 85f;
-webpExtension.Options.Method = WebPEncodingMethod.BestQuality;
+// Register WebP format
+WebPFormatRegistration.RegisterWebPFormat(registry);
+```
 
-// Use in a pipeline
-var inputs = new Dictionary<string, IReadOnlyList<IBasicWorkItem>>
+### Creating Encoders
+
+```csharp
+// With default options
+var encoder = WebPFormatRegistration.CreateEncoder();
+
+// With custom options
+var options = new WebPOptions
 {
-    { "WebP.In", workItems }
+    Lossless = false,
+    Quality = 85f,
+    Method = WebPEncodingMethod.BestQuality
 };
+var encoder = WebPFormatRegistration.CreateEncoder(options);
 
-var outputs = webpExtension.Execute(inputs);
+// Use the encoder
+using var image = Image.Load("input.png");
+using var output = File.Create("output.webp");
+encoder.Encode(image, output, CancellationToken.None);
+```
+
+### Creating Decoders
+
+```csharp
+var decoder = WebPFormatRegistration.CreateDecoder();
+
+using var input = File.OpenRead("input.webp");
+using var image = decoder.Decode(DecoderOptions.Default, input, CancellationToken.None);
+```
+
+### Using with Format Registry
+
+```csharp
+// Get encoder from registry
+var encoder = registry.GetEncoder("WebP", new WebPOptions { Quality = 90f });
+
+// Get decoder from registry
+var decoder = registry.GetDecoder("WebP");
+
+// Check if format is registered
+bool isAvailable = registry.IsFormatRegistered("WebP");
 ```
 
 ## Integration with ConvertBlock
 
-While this extension is currently a standalone plugin, it is designed to be integrated with the `ConvertBlock` in the future. The extension provides:
+Once `ConvertBlock` is updated to use the format registry, it will:
 
-- Compatible encoding options structure
-- Metadata tagging for downstream processing
-- Standard ImageSharp WebP encoder configuration
+1. Query the registry for available formats
+2. Get the appropriate encoder based on target format
+3. Apply user-configured options (WebPOptions)
+4. Encode the image with the configured encoder
 
-Once the ConvertBlock supports dynamic format extension registration, this plugin can be seamlessly integrated to provide WebP encoding capabilities within the Convert block.
+Example future integration:
+```csharp
+// In ConvertBlock.Execute()
+var formatName = TargetFormat.ToString();
+var encoder = _formatRegistry.GetEncoder(formatName, _webpOptions);
+if (encoder != null)
+{
+    workItem.Image.Save(stream, encoder);
+}
+```
 
-## Testing
+## Integration with LoadBlock
 
-The extension includes comprehensive unit tests covering:
+`LoadBlock` can use the registry to:
 
-- Block creation and properties
-- Option configuration and validation
-- Work item processing
-- Metadata application
-- Plugin unloadability
+1. Detect format from file extension
+2. Get appropriate decoder
+3. Decode the image
 
-Run tests with:
+Example future integration:
+```csharp
+// In LoadBlock.Execute()
+var extension = Path.GetExtension(filePath).TrimStart('.');
+var decoder = _formatRegistry.GetDecoder(extension);
+if (decoder != null)
+{
+    using var stream = File.OpenRead(filePath);
+    var image = decoder.Decode(DecoderOptions.Default, stream, cancellationToken);
+}
+```
+
+## WebP Options Reference
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| Lossless | bool | false | Enable lossless compression |
+| Quality | float | 75.0 | Quality factor (0-100, lossy mode only) |
+| FileFormat | enum | Lossy | Derived from Lossless setting |
+| Method | enum | Default | Encoding speed/quality tradeoff |
+| NearLossless | int | 100 | Near-lossless quality (0-100, lossless mode only) |
+| UseAlphaCompression | bool | true | Enable alpha channel compression |
+
+### Encoding Methods
+- **Fastest** (0) - Fast encoding, larger files
+- **Default** (4) - Balanced speed and size
+- **BestQuality** (6) - Slow encoding, smaller files
+
+## Building
+
 ```bash
-dotnet test ImageAutomate.WebPExtension.Tests/ImageAutomate.WebPExtension.Tests.csproj
+dotnet build ImageAutomate.WebPExtension.csproj
 ```
 
 ## Dependencies
 
 - .NET 9.0
-- ImageAutomate.Core
 - SixLabors.ImageSharp 3.1.12
+- ImageAutomate.Core (project reference)
 
-## License
+## Notes
 
-This extension follows the same license as the ImageAutomate project.
+- **CoreImitation.cs** contains a simulated registry interface to avoid modifying Core
+- The actual Core project would need to implement `IImageFormatRegistry` for full integration
+- ImageSharp already has WebP support; this extension provides integration with ImageAutomate's architecture
+- The format registry pattern allows any format to be added without modifying existing blocks
