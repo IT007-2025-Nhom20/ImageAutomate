@@ -117,8 +117,9 @@ public class Workspace
 
         if (Graph != null)
         {
-            dto.Graph = Graph.ToDto();
-            dto.ViewState = ViewState.ToDto(Graph.Nodes);
+            // Pass ViewState to embed layout in each block
+            dto.Graph = Graph.ToDto(ViewState);
+            dto.ViewState = ViewState.ToDto();
         }
 
         return JsonSerializer.Serialize(dto, _serializerOptions);
@@ -140,12 +141,14 @@ public class Workspace
 
         if (dto.Graph != null)
         {
-            workspace.Graph = PipelineGraph.FromDto(dto.Graph);
-
-            if (dto.ViewState != null && workspace.Graph != null)
+            // Create ViewState first, then pass to FromDto to extract layout from blocks
+            if (dto.ViewState != null)
             {
-                workspace.ViewState = ViewState.FromDto(dto.ViewState, workspace.Graph.Nodes);
+                workspace.ViewState = ViewState.FromDto(dto.ViewState);
             }
+            
+            // Pass ViewState to extract embedded layout from blocks
+            workspace.Graph = PipelineGraph.FromDto(dto.Graph, workspace.ViewState);
         }
 
         return workspace;

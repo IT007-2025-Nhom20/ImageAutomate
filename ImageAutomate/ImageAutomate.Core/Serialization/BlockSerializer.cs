@@ -12,20 +12,49 @@ using System.Text.Json.Nodes;
 namespace ImageAutomate.Core.Serialization;
 
 /// <summary>
+/// Result of deserializing a block, including optional layout information.
+/// </summary>
+public record BlockDeserializationResult(IBlock Block, Position? Position, Size? Size);
+
+/// <summary>
 /// Provides serialization/deserialization for IBlock instances.
 /// </summary>
 public static class BlockSerializer
 {
     /// <summary>
-    /// Serializes an IBlock to a BlockDto.
+    /// Serializes an IBlock to a BlockDto without layout information.
     /// </summary>
     public static BlockDto Serialize(IBlock block)
+    {
+        return Serialize(block, null, null);
+    }
+
+    /// <summary>
+    /// Serializes an IBlock to a BlockDto with embedded layout information.
+    /// </summary>
+    /// <param name="block">The block to serialize.</param>
+    /// <param name="position">Optional position to embed in the DTO.</param>
+    /// <param name="size">Optional size to embed in the DTO.</param>
+    public static BlockDto Serialize(IBlock block, Position? position, Size? size)
     {
         var dto = new BlockDto
         {
             BlockType = block.GetType().Name,
             AssemblyQualifiedName = block.GetType().AssemblyQualifiedName ?? block.GetType().FullName ?? block.GetType().Name,
         };
+
+        // Embed layout if provided
+        if (position != null || size != null)
+        {
+            var defaultSize = ViewState.DefaultBlockSize;
+            dto.Layout = new BlockLayoutDto
+            {
+                X = position?.X ?? 0,
+                Y = position?.Y ?? 0,
+                Width = size?.Width ?? defaultSize.Width,
+                Height = size?.Height ?? defaultSize.Height
+            };
+        }
 
         // Serialize sockets
         dto.Inputs = block.Inputs.Select(s => new SocketDto(s)).ToList();
@@ -104,6 +133,25 @@ public static class BlockSerializer
         }
 
         return block;
+    }
+
+    /// <summary>
+    /// Deserializes a BlockDto to an IBlock instance with embedded layout information.
+    /// </summary>
+    public static BlockDeserializationResult DeserializeWithLayout(BlockDto dto)
+    {
+        var block = Deserialize(dto);
+        
+        Position? position = null;
+        Size? size = null;
+        
+        if (dto.Layout != null)
+        {
+            position = new Position(dto.Layout.X, dto.Layout.Y);
+            size = new Size(dto.Layout.Width, dto.Layout.Height);
+        }
+        
+        return new BlockDeserializationResult(block, position, size);
     }
 
     private static object? SerializePropertyValue(object? value, Type propertyType)

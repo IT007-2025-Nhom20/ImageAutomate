@@ -174,16 +174,19 @@ public class PipelineGraph
     }
 
     /// <summary>
-    /// Converts the PipelineGraph to a DTO for serialization.
+    /// Converts the PipelineGraph to a DTO for serialization, embedding layout from ViewState.
     /// </summary>
-    internal PipelineGraphDto ToDto()
+    /// <param name="viewState">Optional ViewState to embed layout information in each block.</param>
+    internal PipelineGraphDto ToDto(ViewState? viewState = null)
     {
         var dto = new PipelineGraphDto();
 
-        // Serialize blocks
+        // Serialize blocks with embedded layout
         foreach (var block in _nodes)
         {
-            dto.Blocks.Add(BlockSerializer.Serialize(block));
+            Position? position = viewState?.GetBlockPosition(block);
+            Size? size = viewState?.GetBlockSize(block);
+            dto.Blocks.Add(BlockSerializer.Serialize(block, position, size));
         }
 
         // Serialize connections (using block indices)
@@ -214,19 +217,30 @@ public class PipelineGraph
     }
 
     /// <summary>
-    /// Creates a PipelineGraph from a DTO.
+    /// Creates a PipelineGraph from a DTO, extracting embedded layout into a ViewState.
     /// </summary>
-    internal static PipelineGraph FromDto(PipelineGraphDto dto)
+    /// <param name="dto">The DTO to deserialize.</param>
+    /// <param name="viewState">The ViewState to populate with layout information.</param>
+    internal static PipelineGraph FromDto(PipelineGraphDto dto, ViewState? viewState = null)
     {
         var graph = new PipelineGraph();
 
-        // Deserialize blocks
+        // Deserialize blocks with layout extraction
         var blocks = new List<IBlock>();
         foreach (var blockDto in dto.Blocks)
         {
-            var block = BlockSerializer.Deserialize(blockDto);
-            blocks.Add(block);
-            graph.AddBlock(block);
+            var result = BlockSerializer.DeserializeWithLayout(blockDto);
+            blocks.Add(result.Block);
+            graph.AddBlock(result.Block);
+            
+            // Extract layout into ViewState if provided
+            if (viewState != null)
+            {
+                if (result.Position != null)
+                    viewState.SetBlockPosition(result.Block, result.Position);
+                if (result.Size != null)
+                    viewState.SetBlockSize(result.Block, result.Size);
+            }
         }
 
         // Deserialize connections

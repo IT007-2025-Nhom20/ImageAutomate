@@ -182,84 +182,30 @@ public class ViewState
     }
 
     /// <summary>
-    /// Converts to DTO for serialization.
+    /// Converts to DTO for serialization (global view state only).
+    /// Block-specific layout is serialized via BlockSerializer.
     /// </summary>
-    internal ViewStateDto ToDto(IReadOnlyList<IBlock> blocks)
+    internal ViewStateDto ToDto()
     {
-        var dto = new ViewStateDto
+        return new ViewStateDto
         {
             Zoom = Zoom,
             PanX = PanX,
             PanY = PanY
         };
-
-        // Build block -> index map for faster lookups
-        var blockIndexMap = new Dictionary<IBlock, int>(blocks.Count);
-        for (int i = 0; i < blocks.Count; i++)
-        {
-            blockIndexMap[blocks[i]] = i;
-        }
-
-        // Serialize positions
-        foreach (var kvp in _blockPositions)
-        {
-            if (blockIndexMap.TryGetValue(kvp.Key, out var blockIndex))
-            {
-                dto.BlockPositions[blockIndex] = new PositionDto
-                {
-                    X = kvp.Value.X,
-                    Y = kvp.Value.Y
-                };
-            }
-        }
-
-        // Serialize sizes (only for blocks that have positions - ensures consistency)
-        foreach (var kvp in _blockSizes)
-        {
-            if (blockIndexMap.TryGetValue(kvp.Key, out var blockIndex))
-            {
-                dto.BlockSizes[blockIndex] = new SizeDto
-                {
-                    Width = kvp.Value.Width,
-                    Height = kvp.Value.Height
-                };
-            }
-        }
-
-        return dto;
     }
 
     /// <summary>
-    /// Creates from DTO. Handles missing size data gracefully by using defaults.
+    /// Creates from DTO (global view state only).
+    /// Block-specific layout is restored via Workspace.FromJson.
     /// </summary>
-    internal static ViewState FromDto(ViewStateDto dto, IReadOnlyList<IBlock> blocks)
+    internal static ViewState FromDto(ViewStateDto dto)
     {
-        var viewState = new ViewState
+        return new ViewState
         {
             Zoom = dto.Zoom,
             PanX = dto.PanX,
             PanY = dto.PanY
         };
-
-        foreach (var kvp in dto.BlockPositions)
-        {
-            if (kvp.Key >= 0 && kvp.Key < blocks.Count)
-            {
-                var block = blocks[kvp.Key];
-                viewState.SetBlockPosition(block, new Position(kvp.Value.X, kvp.Value.Y));
-                
-                // Handle missing size gracefully - use default if not present
-                if (dto.BlockSizes.TryGetValue(kvp.Key, out var sizeDto))
-                {
-                    viewState.SetBlockSize(block, new Size(sizeDto.Width, sizeDto.Height));
-                }
-                else
-                {
-                    viewState.SetBlockSize(block, DefaultBlockSize);
-                }
-            }
-        }
-
-        return viewState;
     }
 }
