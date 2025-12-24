@@ -109,9 +109,7 @@ public class WebPFormatExtension : IBlock, IPluginUnloadable
                 _options.PropertyChanged -= Options_OnPropertyChanged;
 
             _options = value ?? new WebPOptions();
-
-            if (_options != null)
-                _options.PropertyChanged += Options_OnPropertyChanged;
+            _options.PropertyChanged += Options_OnPropertyChanged;
 
             OnPropertyChanged(nameof(Options));
         }
@@ -200,12 +198,14 @@ public class WebPFormatExtension : IBlock, IPluginUnloadable
     {
         var encoder = new WebpEncoder
         {
-            Quality = (int)Options.Quality,
+            // Quality is rounded to nearest integer for encoder
+            Quality = (int)Math.Round(Options.Quality),
             Method = (WebpEncodingMethod)(int)Options.Method,
             FileFormat = Options.Lossless 
                 ? WebpFileFormatType.Lossless 
                 : WebpFileFormatType.Lossy,
-            NearLossless = Options.NearLossless < 100,
+            // NearLossless is enabled when quality is less than 100 and format is lossless
+            NearLossless = Options.Lossless && Options.NearLossless < 100,
             NearLosslessQuality = Options.NearLossless
         };
 

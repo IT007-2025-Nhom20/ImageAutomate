@@ -10,7 +10,6 @@ public class WebPOptions : INotifyPropertyChanged
 {
     private bool _lossless = false;
     private float _quality = 75f;
-    private WebPFileFormatType _fileFormat = WebPFileFormatType.Lossy;
     private WebPEncodingMethod _method = WebPEncodingMethod.Default;
     private int _nearLossless = 100;
 
@@ -51,17 +50,20 @@ public class WebPOptions : INotifyPropertyChanged
     }
 
     [Category("WebP")]
-    [Description("WebP file format type")]
+    [Description("WebP file format type (derived from Lossless setting)")]
     [DefaultValue(WebPFileFormatType.Lossy)]
     public WebPFileFormatType FileFormat
     {
-        get => _fileFormat;
+        get => _lossless ? WebPFileFormatType.Lossless : WebPFileFormatType.Lossy;
         set
         {
-            if (_fileFormat != value)
+            // Update lossless based on file format
+            bool newLossless = value == WebPFileFormatType.Lossless;
+            if (_lossless != newLossless)
             {
-                _fileFormat = value;
+                _lossless = newLossless;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FileFormat)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Lossless)));
             }
         }
     }
