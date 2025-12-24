@@ -33,7 +33,6 @@ public class PipelineGraph
     };
 
     #region Private Fields
-    private IBlock? _selectedBlock;
     private readonly List<IBlock> _nodes = []; // nodes maintain layer hierarchy
     private readonly List<Connection> _edges = [];
     #endregion

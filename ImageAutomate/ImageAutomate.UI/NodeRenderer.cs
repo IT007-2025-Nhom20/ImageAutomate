@@ -25,8 +25,6 @@ public sealed class NodeRenderer : IDisposable
     private Font _labelFont;
     private Font _detailFont;
     private bool _isDisposed;
-
-    private Workspace? _workspace;
     #endregion
 
     private NodeRenderer(Workspace? workspace = null)

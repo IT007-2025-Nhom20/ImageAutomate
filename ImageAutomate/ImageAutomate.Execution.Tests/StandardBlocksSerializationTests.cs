@@ -18,8 +18,6 @@ public class StandardBlocksSerializationTests
         // Arrange
         var block = new LoadBlock
         {
-            Width = 300,
-            Height = 150,
             SourcePath = "/test/path",
             AutoOrient = true
         };
@@ -31,8 +29,6 @@ public class StandardBlocksSerializationTests
         // Assert
         Assert.NotNull(deserialized);
         Assert.Equal(block.Name, deserialized.Name);
-        Assert.Equal(block.Width, deserialized.Width);
-        Assert.Equal(block.Height, deserialized.Height);
         Assert.Equal(block.SourcePath, deserialized.SourcePath);
         Assert.Equal(block.AutoOrient, deserialized.AutoOrient);
         // Note: MaxShipmentSize is not serialized as it lacks [Category] attribute
@@ -49,8 +45,6 @@ public class StandardBlocksSerializationTests
         // Arrange
         var block = new BrightnessBlock
         {
-            Width = 250,
-            Height = 120,
             Bright = 1.5f
         };
 
@@ -61,8 +55,6 @@ public class StandardBlocksSerializationTests
         // Assert
         Assert.NotNull(deserialized);
         Assert.Equal(block.Name, deserialized.Name);
-        Assert.Equal(block.Width, deserialized.Width);
-        Assert.Equal(block.Height, deserialized.Height);
         Assert.Equal(block.Bright, deserialized.Bright, precision: 5);
     }
 
@@ -76,8 +68,6 @@ public class StandardBlocksSerializationTests
         // Arrange
         var block = new ResizeBlock
         {
-            Width = 350,
-            Height = 200,
             ResizeMode = ResizeModeOption.Fit,
             TargetWidth = 1920,
             TargetHeight = 1080,
@@ -93,8 +83,6 @@ public class StandardBlocksSerializationTests
         // Assert
         Assert.NotNull(deserialized);
         Assert.Equal(block.Name, deserialized.Name);
-        Assert.Equal(block.Width, deserialized.Width);
-        Assert.Equal(block.Height, deserialized.Height);
         Assert.Equal(block.ResizeMode, deserialized.ResizeMode);
         Assert.Equal(block.TargetWidth, deserialized.TargetWidth);
         Assert.Equal(block.TargetHeight, deserialized.TargetHeight);
@@ -112,8 +100,6 @@ public class StandardBlocksSerializationTests
         // Arrange
         var block = new ConvertBlock
         {
-            Width = 300,
-            Height = 180,
             TargetFormat = ImageFormat.Jpeg,
             AlwaysEncode = true
         };
@@ -125,8 +111,6 @@ public class StandardBlocksSerializationTests
         // Assert
         Assert.NotNull(deserialized);
         Assert.Equal(block.Name, deserialized.Name);
-        Assert.Equal(block.Width, deserialized.Width);
-        Assert.Equal(block.Height, deserialized.Height);
         Assert.Equal(block.TargetFormat, deserialized.TargetFormat);
         Assert.Equal(block.AlwaysEncode, deserialized.AlwaysEncode);
     }
@@ -368,8 +352,6 @@ public class StandardBlocksSerializationTests
         // Arrange
         var block = new SaveBlock
         {
-            Width = 280,
-            Height = 140,
             OutputPath = "/output",
             Overwrite = true,
             CreateDirectory = false

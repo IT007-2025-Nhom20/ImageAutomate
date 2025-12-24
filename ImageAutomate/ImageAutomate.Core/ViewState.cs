@@ -21,9 +21,20 @@ public record Size(int Width, int Height);
 
 /// <summary>
 /// Stores view state information for the workspace UI.
+/// Holds block layout data (positions, sizes) decoupled from the IBlock interface.
 /// </summary>
+/// <remarks>
+/// This class uses object identity (reference equality) for block keys.
+/// Block layout is managed independently from block logic, allowing IBlock
+/// to remain free of UI concerns.
+/// </remarks>
 public class ViewState
 {
+    /// <summary>
+    /// Default block size used when no size is explicitly set.
+    /// </summary>
+    public static readonly Size DefaultBlockSize = new(200, 100);
+
     private readonly Dictionary<IBlock, Position> _blockPositions = [];
     private readonly Dictionary<IBlock, Size> _blockSizes = [];
     private double _zoom = 1.0;
@@ -107,6 +118,17 @@ public class ViewState
     }
 
     /// <summary>
+    /// Removes all layout data (position and size) for a specific block.
+    /// Call this when a block is removed from the graph.
+    /// </summary>
+    /// <param name="block">The block to remove layout data for.</param>
+    public void RemoveBlock(IBlock block)
+    {
+        _blockPositions.Remove(block);
+        _blockSizes.Remove(block);
+    }
+
+    /// <summary>
     /// Clears all block positions.
     /// </summary>
     public void Clear()
@@ -116,6 +138,47 @@ public class ViewState
         _zoom = 1.0;
         _panX = 0.0;
         _panY = 0.0;
+    }
+
+    /// <summary>
+    /// Removes all layout data for blocks not in the provided collection.
+    /// Call this to clean up stale references after blocks are removed from the graph.
+    /// </summary>
+    /// <param name="validBlocks">The collection of blocks that should be retained.</param>
+    public void PruneStaleBlocks(IEnumerable<IBlock> validBlocks)
+    {
+        var validSet = new HashSet<IBlock>(validBlocks);
+        
+        var stalePositionKeys = _blockPositions.Keys.Where(k => !validSet.Contains(k)).ToList();
+        foreach (var key in stalePositionKeys)
+            _blockPositions.Remove(key);
+
+        var staleSizeKeys = _blockSizes.Keys.Where(k => !validSet.Contains(k)).ToList();
+        foreach (var key in staleSizeKeys)
+            _blockSizes.Remove(key);
+    }
+
+    /// <summary>
+    /// Gets or sets the block position, with a fallback if not set.
+    /// Returns the position or null if not found.
+    /// </summary>
+    public Position GetBlockPositionOrDefault(IBlock block, Position? defaultPosition = null)
+    {
+        if (_blockPositions.TryGetValue(block, out var pos))
+            return pos;
+        
+        return defaultPosition ?? new Position(0, 0);
+    }
+
+    /// <summary>
+    /// Gets the block size, with a fallback to DefaultBlockSize if not set.
+    /// </summary>
+    public Size GetBlockSizeOrDefault(IBlock block, Size? defaultSize = null)
+    {
+        if (_blockSizes.TryGetValue(block, out var size))
+            return size;
+        
+        return defaultSize ?? DefaultBlockSize;
     }
 
     /// <summary>
@@ -130,30 +193,35 @@ public class ViewState
             PanY = PanY
         };
 
+        // Build block -> index map for faster lookups
+        var blockIndexMap = new Dictionary<IBlock, int>(blocks.Count);
+        for (int i = 0; i < blocks.Count; i++)
+        {
+            blockIndexMap[blocks[i]] = i;
+        }
+
+        // Serialize positions
         foreach (var kvp in _blockPositions)
         {
-            // Find block index manually
-            var blockIndex = -1;
-            for (int i = 0; i < blocks.Count; i++)
-            {
-                if (blocks[i] == kvp.Key)
-                {
-                    blockIndex = i;
-                    break;
-                }
-            }
-
-            if (blockIndex >= 0)
+            if (blockIndexMap.TryGetValue(kvp.Key, out var blockIndex))
             {
                 dto.BlockPositions[blockIndex] = new PositionDto
                 {
                     X = kvp.Value.X,
                     Y = kvp.Value.Y
                 };
+            }
+        }
+
+        // Serialize sizes (only for blocks that have positions - ensures consistency)
+        foreach (var kvp in _blockSizes)
+        {
+            if (blockIndexMap.TryGetValue(kvp.Key, out var blockIndex))
+            {
                 dto.BlockSizes[blockIndex] = new SizeDto
                 {
-                    Width = _blockSizes[kvp.Key].Width,
-                    Height = _blockSizes[kvp.Key].Height
+                    Width = kvp.Value.Width,
+                    Height = kvp.Value.Height
                 };
             }
         }
@@ -162,7 +230,7 @@ public class ViewState
     }
 
     /// <summary>
-    /// Creates from DTO.
+    /// Creates from DTO. Handles missing size data gracefully by using defaults.
     /// </summary>
     internal static ViewState FromDto(ViewStateDto dto, IReadOnlyList<IBlock> blocks)
     {
@@ -179,9 +247,16 @@ public class ViewState
             {
                 var block = blocks[kvp.Key];
                 viewState.SetBlockPosition(block, new Position(kvp.Value.X, kvp.Value.Y));
-                viewState.SetBlockSize(block, new Size(
-                    dto.BlockSizes[kvp.Key].Width,
-                    dto.BlockSizes[kvp.Key].Height));
+                
+                // Handle missing size gracefully - use default if not present
+                if (dto.BlockSizes.TryGetValue(kvp.Key, out var sizeDto))
+                {
+                    viewState.SetBlockSize(block, new Size(sizeDto.Width, sizeDto.Height));
+                }
+                else
+                {
+                    viewState.SetBlockSize(block, DefaultBlockSize);
+                }
             }
         }
 

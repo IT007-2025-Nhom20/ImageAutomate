@@ -33,9 +33,6 @@ public class ResizeBlock : IBlock
 
     private bool _disposed;
 
-    private int _nodeWidth = 200;
-    private int _nodeHeight = 110;
-
     // Configuration
     private ResizeModeOption _resizeMode = ResizeModeOption.Fit;
     private int? _targetWidth;
@@ -75,40 +72,6 @@ public class ResizeBlock : IBlock
                    $"Width: {TargetWidth}\n" +
                    $"Height: {TargetHeight}\n" +
                    $"Resampler: {Resampler}";
-        }
-    }
-
-    #endregion
-
-    #region Layout (node size)
-
-    [Category("Layout")]
-    [Description("Width of the block node")]
-    public int Width
-    {
-        get => _nodeWidth;
-        set
-        {
-            if (_nodeWidth != value)
-            {
-                _nodeWidth = value;
-                OnPropertyChanged(nameof(Width));
-            }
-        }
-    }
-
-    [Category("Layout")]
-    [Description("Height of the block node")]
-    public int Height
-    {
-        get => _nodeHeight;
-        set
-        {
-            if (_nodeHeight != value)
-            {
-                _nodeHeight = value;
-                OnPropertyChanged(nameof(Height));
-            }
         }
     }
 

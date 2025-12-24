@@ -20,6 +20,8 @@ public class Workspace
         WriteIndented = true,
     };
 
+    private PipelineGraph? _graph;
+
     /// <summary>
     /// Gets or sets the workspace name.
     /// </summary>
@@ -28,7 +30,26 @@ public class Workspace
     /// <summary>
     /// Gets or sets the pipeline graph.
     /// </summary>
-    public PipelineGraph? Graph { get; set; }
+    public PipelineGraph? Graph
+    {
+        get => _graph;
+        set
+        {
+            // Unsubscribe from old graph
+            if (_graph != null)
+            {
+                _graph.OnNodeRemoved -= OnGraphNodeRemoved;
+            }
+
+            _graph = value;
+
+            // Subscribe to new graph
+            if (_graph != null)
+            {
+                _graph.OnNodeRemoved += OnGraphNodeRemoved;
+            }
+        }
+    }
 
     /// <summary>
     /// Gets or sets the view state.
@@ -46,6 +67,14 @@ public class Workspace
     public bool IncludeSchemaReference { get; set; } = true;
 
     /// <summary>
+    /// Handles automatic cleanup of ViewState when a block is removed from the graph.
+    /// </summary>
+    private void OnGraphNodeRemoved(IBlock block)
+    {
+        ViewState.RemoveBlock(block);
+    }
+
+    /// <summary>
     /// Finds the top-most block at the given world coordinates.
     /// </summary>
     public IBlock? HitTestNode(double x, double y)
@@ -56,15 +85,14 @@ public class Workspace
         // Iterate in reverse order (Top to Bottom)
         for (int i = Graph.Nodes.Count - 1; i >= 0; i--)
         {
-            var blockPos = ViewState.GetBlockPosition(Graph.Nodes[i])
-                ?? throw new InvalidOperationException("Block position not found in ViewState.");
-            var blockSize = ViewState.GetBlockSize(Graph.Nodes[i])
-                ?? throw new InvalidOperationException("Block size not found in ViewState.");
+            var block = Graph.Nodes[i];
+            var blockPos = ViewState.GetBlockPositionOrDefault(block);
+            var blockSize = ViewState.GetBlockSizeOrDefault(block);
 
             if (x >= blockPos.X && x <= blockPos.X + blockSize.Width &&
                 y >= blockPos.Y && y <= blockPos.Y + blockSize.Height)
             {
-                return Graph.Nodes[i];
+                return block;
             }
         }
         return null;

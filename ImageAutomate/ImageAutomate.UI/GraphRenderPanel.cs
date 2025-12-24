@@ -343,12 +343,11 @@ public class GraphRenderPanel : Panel
 
             // 2. Check Node Hit (Selection / Dragging)
             var hitNode = Workspace?.HitTestNode(worldPosition.X, worldPosition.Y);
-            if (hitNode != null)
+            if (hitNode != null && Workspace?.ViewState != null)
             {
                 Graph.BringToTop(hitNode);
                 Graph.SelectedItem = hitNode;
-                var blockPos = Workspace?.ViewState.GetBlockPosition(hitNode)
-                    ?? throw new InvalidOperationException("Block position not found in ViewState.");
+                var blockPos = Workspace.ViewState.GetBlockPositionOrDefault(hitNode);
 
                 _isDraggingNode = true;
                 _draggedNode = hitNode;
@@ -521,6 +520,8 @@ public class GraphRenderPanel : Panel
             return;
 
         var viewState = Workspace?.ViewState;
+        if (viewState == null)
+            return;
 
         Graphics g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -534,14 +535,10 @@ public class GraphRenderPanel : Panel
         // Draw Connections
         foreach (var edge in Graph.Edges)
         {
-            var sourcePos = viewState?.GetBlockPosition(edge.Source)
-                ?? throw new InvalidOperationException("Block position not found in ViewState.");
-            var sourceSize = viewState?.GetBlockSize(edge.Source)
-                ?? throw new InvalidOperationException("Block size not found in ViewState.");
-            var targetPos = viewState?.GetBlockPosition(edge.Target)
-                ?? throw new InvalidOperationException("Block position not found in ViewState.");
-            var targetSize = viewState?.GetBlockSize(edge.Target)
-                ?? throw new InvalidOperationException("Block size not found in ViewState.");
+            var sourcePos = viewState.GetBlockPositionOrDefault(edge.Source);
+            var sourceSize = viewState.GetBlockSizeOrDefault(edge.Source);
+            var targetPos = viewState.GetBlockPositionOrDefault(edge.Target);
+            var targetSize = viewState.GetBlockSizeOrDefault(edge.Target);
             bool isSelected = Graph.SelectedItem is Connection conn
                 && edge == conn;
             NodeRenderer.Instance.DrawEdge(g, sourcePos, sourceSize, targetPos, targetSize, isSelected, _socketRadius);
@@ -556,10 +553,8 @@ public class GraphRenderPanel : Panel
         // Draw Nodes
         foreach (var block in Graph.Nodes)
         {
-            var blockPos = viewState?.GetBlockPosition(block)
-                ?? throw new InvalidOperationException("Block position not found in ViewState.");
-            var blockSize = viewState?.GetBlockSize(block)
-                ?? throw new InvalidOperationException("Block size not found in ViewState.");
+            var blockPos = viewState.GetBlockPositionOrDefault(block);
+            var blockSize = viewState.GetBlockSizeOrDefault(block);
             bool isSelected = block == Graph.SelectedItem;
             NodeRenderer.Instance.DrawNode(g, block, blockPos, blockSize, isSelected, _selectedBlockOutlineColor, _socketRadius);
         }
@@ -582,14 +577,14 @@ public class GraphRenderPanel : Panel
             return null;
 
         var viewState = Workspace?.ViewState;
+        if (viewState == null)
+            return null;
 
         // Reverse order to match top-down visual
         foreach (var block in Graph.Nodes.Reverse())
         {
-            Position blockPos = viewState?.GetBlockPosition(block)
-                ?? throw new InvalidOperationException("Block position not found in ViewState.");
-            Core.Size blockSize = viewState?.GetBlockSize(block)
-                ?? throw new InvalidOperationException("Block size not found in ViewState.");
+            Position blockPos = viewState.GetBlockPositionOrDefault(block);
+            Core.Size blockSize = viewState.GetBlockSizeOrDefault(block);
 
             // Check Input Zone (Left Side)
             if (block.Inputs.Count > 0)
@@ -645,19 +640,19 @@ public class GraphRenderPanel : Panel
         if (Graph == null)
             return null;
 
+        var viewState = Workspace?.ViewState;
+        if (viewState == null)
+            return null;
+
         // Check edges. Order might matter if they overlap, but usually doesn't.
         using Pen hitPen = new Pen(Color.Black, 10); // Wide pen for hit testing
 
         foreach (var edge in Graph.Edges)
         {
-            var sourcePos = Workspace?.ViewState.GetBlockPosition(edge.Source)
-                ?? throw new InvalidOperationException("Block position not found in ViewState.");
-            var sourceSize = Workspace?.ViewState.GetBlockSize(edge.Source)
-                ?? throw new InvalidOperationException("Block size not found in ViewState.");
-            var targetPos = Workspace?.ViewState.GetBlockPosition(edge.Target)
-                ?? throw new InvalidOperationException("Block position not found in ViewState.");
-            var targetSize = Workspace?.ViewState.GetBlockSize(edge.Target)
-                ?? throw new InvalidOperationException("Block size not found in ViewState.");
+            var sourcePos = viewState.GetBlockPositionOrDefault(edge.Source);
+            var sourceSize = viewState.GetBlockSizeOrDefault(edge.Source);
+            var targetPos = viewState.GetBlockPositionOrDefault(edge.Target);
+            var targetSize = viewState.GetBlockSizeOrDefault(edge.Target);
             using var path = NodeRenderer.GetEdgePath(sourcePos, sourceSize, targetPos, targetSize);
             if (path.IsOutlineVisible(worldPosition, hitPen))
             {
@@ -690,10 +685,12 @@ public class GraphRenderPanel : Panel
 
     private void CenterCameraOnBlock(IBlock block)
     {
-        var blockPos = Workspace?.ViewState.GetBlockPosition(block)
-            ?? throw new InvalidOperationException("Block position not found in ViewState.");
-        var blockSize = Workspace?.ViewState.GetBlockSize(block)
-            ?? throw new InvalidOperationException("Block size not found in ViewState.");
+        var viewState = Workspace?.ViewState;
+        if (viewState == null)
+            return;
+
+        var blockPos = viewState.GetBlockPositionOrDefault(block);
+        var blockSize = viewState.GetBlockSizeOrDefault(block);
         float screenCX = Width / 2.0f;
         float screenCY = Height / 2.0f;
 

@@ -70,8 +70,6 @@ public class SerializationTests
         // We use a real block (BrightnessBlock) that has a parameterless constructor
         var block = new ImageAutomate.StandardBlocks.BrightnessBlock
         {
-            Width = 250,
-            Height = 150,
             Bright = 1.5f
         };
 
@@ -108,7 +106,7 @@ public class SerializationTests
     {
         // Arrange
         var graph = new PipelineGraph();
-        var block = new ImageAutomate.StandardBlocks.BrightnessBlock { Width = 200, Height = 100 };
+        var block = new ImageAutomate.StandardBlocks.BrightnessBlock();
         graph.AddBlock(block);
 
         // Act
