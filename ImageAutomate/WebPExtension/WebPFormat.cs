@@ -1,7 +1,7 @@
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Webp;
 
-namespace ImageAutomate.WebPExtension;
+namespace WebPExtension;
 
 /// <summary>
 /// WebP image format implementation for ImageSharp.

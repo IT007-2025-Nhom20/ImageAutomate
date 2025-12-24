@@ -1,7 +1,7 @@
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
 
-namespace ImageAutomate.WebPExtension;
+namespace WebPExtension;
 
 /// <summary>
 /// Factory class for creating WebP encoders and decoders with ImageAutomate options.

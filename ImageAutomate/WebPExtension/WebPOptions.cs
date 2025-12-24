@@ -1,6 +1,6 @@
 using System.ComponentModel;
 
-namespace ImageAutomate.WebPExtension;
+namespace WebPExtension;
 
 /// <summary>
 /// Configuration options for WebP image encoding in ImageAutomate.

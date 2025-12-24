@@ -2,7 +2,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
 using ImageAutomate.Core;
 
-namespace ImageAutomate.WebPExtension;
+namespace WebPExtension;
 
 /// <summary>
 /// Handles registration of the WebP format extension with ImageSharp and ImageAutomate Core.

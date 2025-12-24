@@ -1,6 +1,6 @@
 using ImageAutomate.Core;
 
-namespace ImageAutomate.WebPExtension;
+namespace WebPExtension;
 
 /// <summary>
 /// Plugin initializer for the WebP format extension.
