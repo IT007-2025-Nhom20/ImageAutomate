@@ -1,0 +1,15 @@
+{
+  "Name": "ImageAutomate.WebPExtension",
+  "EntryPoint": "ImageAutomate.WebPExtension.dll",
+  "Version": "1.0.0",
+  "Description": "WebP format extension for ImageAutomate. Provides WebP encoding/decoding support with configurable options through ImageSharp integration and format registry system.",
+  "Author": "ImageAutomate",
+  "Metadata": {
+    "FormatName": "WebP",
+    "FormatExtensions": ".webp",
+    "FormatMimeType": "image/webp",
+    "RequiresRegistry": "true",
+    "PluginType": "FormatExtension",
+    "InitializationClass": "ImageAutomate.WebPExtension.WebPPluginInitializer"
+  }
+}

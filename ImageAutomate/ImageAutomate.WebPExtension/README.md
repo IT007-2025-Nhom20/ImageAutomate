@@ -1,10 +1,80 @@
 # ImageAutomate WebP Format Extension
 
-A proper ImageSharp format extension for WebP that integrates with ImageAutomate's format registry system.
+A proper ImageSharp format extension for WebP that integrates with ImageAutomate's format registry system and plugin loader.
 
 ## Overview
 
 This extension implements the necessary contracts to make WebP available to `ConvertBlock` and `LoadBlock` through a central format registry. It follows ImageSharp's extension protocol and provides a bridge to ImageAutomate's block system.
+
+## Plugin System Integration
+
+This extension is packaged as a loadable plugin with automatic initialization support.
+
+### Plugin Structure
+
+The plugin includes:
+- **MANIFEST.json** - Plugin metadata and configuration
+  - Specifies entry point DLL
+  - Defines initialization class
+  - Provides format metadata
+- **WebPPluginInitializer** - Automatic initialization entry point
+  - Called by plugin loader on load
+  - Handles format registration
+  - Provides plugin metadata
+
+### Loading the Plugin
+
+The plugin can be loaded in multiple ways:
+
+**1. Using PluginLoader (Production)**
+```csharp
+var pluginLoader = new PluginLoader();
+
+// Load from directory (with MANIFEST.json)
+var plugin = pluginLoader.LoadPluginFromDirectory("path/to/ImageAutomate.WebPExtension");
+
+// Or load directly from DLL
+var plugin = pluginLoader.LoadPlugin("ImageAutomate.WebPExtension.dll");
+
+// Initialize the format extension
+WebPPluginInitializer.Initialize(registry);
+```
+
+**2. Using Plugin Directory Discovery**
+```csharp
+var pluginLoader = new PluginLoader();
+
+// Discover and load all plugins from a directory
+var plugins = pluginLoader.LoadAllPlugins("./plugins");
+
+// The WebP extension will be automatically discovered if it has MANIFEST.json
+```
+
+**3. Manual Initialization (for testing)**
+```csharp
+using ImageAutomate.WebPExtension;
+
+// Initialize without plugin loader
+WebPPluginInitializer.Initialize(registry);
+```
+
+### MANIFEST.json
+
+The plugin includes a manifest file that tells the plugin loader how to handle it:
+
+```json
+{
+  "Name": "ImageAutomate.WebPExtension",
+  "EntryPoint": "ImageAutomate.WebPExtension.dll",
+  "Version": "1.0.0",
+  "Description": "WebP format extension...",
+  "Metadata": {
+    "FormatName": "WebP",
+    "PluginType": "FormatExtension",
+    "InitializationClass": "ImageAutomate.WebPExtension.WebPPluginInitializer"
+  }
+}
+```
 
 ## Architecture
 
@@ -15,16 +85,11 @@ This extension implements the necessary contracts to make WebP available to `Con
    - File extensions: `.webp`
    - MIME type: `image/webp`
 
-2. **WebPEncoder** - Implements `IImageEncoder` from ImageSharp
-   - Wraps ImageSharp's built-in `WebpEncoder`
-   - Integrates with `WebPOptions` for configuration
-   - Supports both lossy and lossless compression
+2. **WebPFormatFactory** - Factory for encoder/decoder creation
+   - Creates `WebpEncoder` from ImageSharp with `WebPOptions`
+   - Returns format indicator for decoder (ImageSharp handles automatically)
 
-3. **WebPDecoder** - Implements `IImageDecoder` from ImageSharp
-   - Wraps ImageSharp's built-in `WebpDecoder`
-   - Handles WebP image decoding
-
-4. **WebPOptions** - Configuration class for ImageAutomate
+3. **WebPOptions** - Configuration class for ImageAutomate
    - Lossless/Lossy mode selection
    - Quality control (0-100)
    - Encoding method (Fastest/Default/BestQuality)
@@ -32,15 +97,20 @@ This extension implements the necessary contracts to make WebP available to `Con
    - Alpha compression control
    - Implements `INotifyPropertyChanged` for UI binding
 
-5. **WebPFormatRegistration** - Registration utility
+4. **WebPFormatRegistration** - Registration utility
    - Registers format with ImageSharp
    - Registers with ImageAutomate's format registry
    - Provides factory methods for encoder/decoder creation
 
+5. **WebPPluginInitializer** - Plugin initialization entry point
+   - Automatic initialization when plugin is loaded
+   - Provides plugin metadata
+   - Thread-safe initialization
+
 6. **CoreImitation** - Simulated format registry interface
    - Defines `IImageFormatRegistry` interface
    - Provides dummy implementation for type checking
-   - Located in `ImageAutomate.Core` namespace (illegally, as requested)
+   - Located in `ImageAutomate.Core` namespace (as requested)
 
 ## Format Registry System
 
@@ -57,7 +127,24 @@ This allows blocks like `ConvertBlock` and `LoadBlock` to:
 
 ## Usage
 
-### Registration
+### As a Plugin (Recommended)
+
+```csharp
+// In application startup
+var pluginLoader = new PluginLoader();
+var registry = new ImageFormatRegistry();
+
+// Load WebP extension plugin
+var webpPlugin = pluginLoader.LoadPluginFromDirectory("./plugins/ImageAutomate.WebPExtension");
+
+// Initialize the extension with registry
+WebPPluginInitializer.Initialize(registry);
+
+// Now WebP is available through the registry
+var encoder = registry.GetEncoder("WebP", new WebPOptions { Quality = 90 });
+```
+
+### Manual Registration
 
 ```csharp
 using ImageAutomate.WebPExtension;
