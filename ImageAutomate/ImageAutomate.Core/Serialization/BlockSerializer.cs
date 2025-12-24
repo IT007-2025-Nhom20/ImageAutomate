@@ -25,8 +25,6 @@ public static class BlockSerializer
         {
             BlockType = block.GetType().Name,
             AssemblyQualifiedName = block.GetType().AssemblyQualifiedName ?? block.GetType().FullName ?? block.GetType().Name,
-            Width = block.Width,
-            Height = block.Height
         };
 
         // Serialize sockets
@@ -42,9 +40,7 @@ public static class BlockSerializer
                 prop.Name == nameof(IBlock.Title) ||
                 prop.Name == nameof(IBlock.Content) ||
                 prop.Name == nameof(IBlock.Inputs) ||
-                prop.Name == nameof(IBlock.Outputs) ||
-                prop.Name == nameof(IBlock.Width) ||
-                prop.Name == nameof(IBlock.Height))
+                prop.Name == nameof(IBlock.Outputs))
                 continue;
 
             // Skip properties without Category attribute (internal implementation details)
@@ -86,10 +82,6 @@ public static class BlockSerializer
         var block = Activator.CreateInstance(type) as IBlock;
         if (block == null)
             throw new InvalidOperationException($"Cannot create instance of type: {type.FullName}");
-
-        // Set Width and Height
-        block.Width = dto.Width;
-        block.Height = dto.Height;
 
         // Restore properties
         foreach (var kvp in dto.Properties)

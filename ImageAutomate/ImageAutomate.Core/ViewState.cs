@@ -13,12 +13,19 @@ namespace ImageAutomate.Core;
 /// </summary>
 public record Position(double X, double Y);
 
+
+/// <summary>
+/// Represents size dimensions.
+/// </summary>
+public record Size(int Width, int Height);
+
 /// <summary>
 /// Stores view state information for the workspace UI.
 /// </summary>
 public class ViewState
 {
-    private readonly Dictionary<IBlock, Position> _blockPositions = new();
+    private readonly Dictionary<IBlock, Position> _blockPositions = [];
+    private readonly Dictionary<IBlock, Size> _blockSizes = [];
     private double _zoom = 1.0;
     private double _panX = 0.0;
     private double _panY = 0.0;
@@ -38,7 +45,7 @@ public class ViewState
     public double PanX
     {
         get => _panX;
-        set => _panX = value;
+        set => _panX = double.IsFinite(value) ? value : 0.0;
     }
 
     /// <summary>
@@ -74,12 +81,38 @@ public class ViewState
         _blockPositions.Remove(block);
     }
 
+
+    /// <summary>
+    /// Gets the size of a block.
+    /// </summary>
+    public Size? GetBlockSize(IBlock block)
+    {
+        return _blockSizes.TryGetValue(block, out var size) ? size : null;
+    }
+
+    /// <summary>
+    /// Sets the size of a block.
+    /// </summary>
+    public void SetBlockSize(IBlock block, Size size)
+    {
+        _blockSizes[block] = size;
+    }
+
+    /// <summary>
+    /// Removes the size of a block.
+    /// </summary>
+    public void RemoveBlockSize(IBlock block)
+    {
+        _blockSizes.Remove(block);
+    }
+
     /// <summary>
     /// Clears all block positions.
     /// </summary>
     public void Clear()
     {
         _blockPositions.Clear();
+        _blockSizes.Clear();
         _zoom = 1.0;
         _panX = 0.0;
         _panY = 0.0;
@@ -117,6 +150,11 @@ public class ViewState
                     X = kvp.Value.X,
                     Y = kvp.Value.Y
                 };
+                dto.BlockSizes[blockIndex] = new SizeDto
+                {
+                    Width = _blockSizes[kvp.Key].Width,
+                    Height = _blockSizes[kvp.Key].Height
+                };
             }
         }
 
@@ -141,6 +179,9 @@ public class ViewState
             {
                 var block = blocks[kvp.Key];
                 viewState.SetBlockPosition(block, new Position(kvp.Value.X, kvp.Value.Y));
+                viewState.SetBlockSize(block, new Size(
+                    dto.BlockSizes[kvp.Key].Width,
+                    dto.BlockSizes[kvp.Key].Height));
             }
         }
 

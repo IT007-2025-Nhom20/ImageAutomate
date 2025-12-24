@@ -44,12 +44,6 @@ public class BlockDto
     [JsonPropertyName("assemblyQualifiedName")]
     public string AssemblyQualifiedName { get; set; } = string.Empty;
 
-    [JsonPropertyName("width")]
-    public int Width { get; set; }
-
-    [JsonPropertyName("height")]
-    public int Height { get; set; }
-
     [JsonPropertyName("properties")]
     public Dictionary<string, object?> Properties { get; set; } = new();
 
@@ -99,7 +93,10 @@ public class PipelineGraphDto
 public class ViewStateDto
 {
     [JsonPropertyName("blockPositions")]
-    public Dictionary<int, PositionDto> BlockPositions { get; set; } = new();
+    public Dictionary<int, PositionDto> BlockPositions { get; set; } = [];
+
+    [JsonPropertyName("blockSizes")]
+    public Dictionary<int, SizeDto> BlockSizes { get; set; } = [];
 
     [JsonPropertyName("zoom")]
     public double Zoom { get; set; } = 1.0;
@@ -121,6 +118,18 @@ public class PositionDto
 
     [JsonPropertyName("y")]
     public double Y { get; set; }
+}
+
+/// <summary>
+/// DTO for storing size.
+/// </summary>
+public class SizeDto
+{
+    [JsonPropertyName("width")]
+    public int Width { get; set; }
+
+    [JsonPropertyName("height")]
+    public int Height { get; set; }
 }
 
 /// <summary>

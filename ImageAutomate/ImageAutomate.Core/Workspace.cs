@@ -46,6 +46,31 @@ public class Workspace
     public bool IncludeSchemaReference { get; set; } = true;
 
     /// <summary>
+    /// Finds the top-most block at the given world coordinates.
+    /// </summary>
+    public IBlock? HitTestNode(double x, double y)
+    {
+        if (Graph == null)
+            return null;
+
+        // Iterate in reverse order (Top to Bottom)
+        for (int i = Graph.Nodes.Count - 1; i >= 0; i--)
+        {
+            var blockPos = ViewState.GetBlockPosition(Graph.Nodes[i])
+                ?? throw new InvalidOperationException("Block position not found in ViewState.");
+            var blockSize = ViewState.GetBlockSize(Graph.Nodes[i])
+                ?? throw new InvalidOperationException("Block size not found in ViewState.");
+
+            if (x >= blockPos.X && x <= blockPos.X + blockSize.Width &&
+                y >= blockPos.Y && y <= blockPos.Y + blockSize.Height)
+            {
+                return Graph.Nodes[i];
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
     /// Serializes the workspace to JSON string.
     /// </summary>
     public string ToJson()
@@ -59,13 +84,13 @@ public class Workspace
 
         if (IncludeSchemaReference)
         {
-            dto.Schema = "https://raw.githubusercontent.com/IT007-2025-Nhom20/ImageAutomate/main/docs/workspace-schema.json";
+            dto.Schema = "https://raw.githubusercontent.com/IT007-2025-Nhom20/ImageAutomate/project-restructure/docs/workspace-schema.json";
         }
 
         if (Graph != null)
         {
             dto.Graph = Graph.ToDto();
-            dto.ViewState = ViewState.ToDto(Graph.Blocks);
+            dto.ViewState = ViewState.ToDto(Graph.Nodes);
         }
 
         return JsonSerializer.Serialize(dto, _serializerOptions);
@@ -76,10 +101,9 @@ public class Workspace
     /// </summary>
     public static Workspace FromJson(string json)
     {
-        var dto = JsonSerializer.Deserialize<WorkspaceDto>(json, _serializerOptions);
-        if (dto == null)
-            throw new InvalidOperationException("Failed to deserialize workspace from JSON.");
-
+        var dto = JsonSerializer.Deserialize<WorkspaceDto>(json, _serializerOptions)
+            ?? throw new InvalidOperationException("Failed to deserialize workspace from JSON.");
+        
         var workspace = new Workspace
         {
             Name = dto.Name,
@@ -92,7 +116,7 @@ public class Workspace
 
             if (dto.ViewState != null && workspace.Graph != null)
             {
-                workspace.ViewState = ViewState.FromDto(dto.ViewState, workspace.Graph.Blocks);
+                workspace.ViewState = ViewState.FromDto(dto.ViewState, workspace.Graph.Nodes);
             }
         }
 
