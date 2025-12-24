@@ -61,9 +61,11 @@ public static class BlockSerializer
                 var value = prop.GetValue(block);
                 dto.Properties[prop.Name] = SerializePropertyValue(value, prop.PropertyType);
             }
-            catch
+            catch (Exception ex)
             {
                 // Skip properties that cannot be serialized
+                // Log for debugging if logger is available
+                System.Diagnostics.Debug.WriteLine($"Failed to serialize property {prop.Name}: {ex.Message}");
             }
         }
 
@@ -100,9 +102,11 @@ public static class BlockSerializer
                     var value = DeserializePropertyValue(kvp.Value, prop.PropertyType);
                     prop.SetValue(block, value);
                 }
-                catch
+                catch (Exception ex)
                 {
                     // Skip properties that cannot be deserialized
+                    // Log for debugging if logger is available
+                    System.Diagnostics.Debug.WriteLine($"Failed to deserialize property {kvp.Key}: {ex.Message}");
                 }
             }
         }

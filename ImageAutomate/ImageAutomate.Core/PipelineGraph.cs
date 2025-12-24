@@ -26,7 +26,7 @@ public record Connection(
 /// </remarks>
 public class PipelineGraph
 {
-    private static System.Text.Json.JsonSerializerOptions _serializerOptions = new()
+    private static readonly System.Text.Json.JsonSerializerOptions _serializerOptions = new()
     {
         IncludeFields = true,
         WriteIndented = true,
