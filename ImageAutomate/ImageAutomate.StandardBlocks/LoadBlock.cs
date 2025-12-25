@@ -1,4 +1,4 @@
-﻿using ImageAutomate.Core;
+using ImageAutomate.Core;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using SixLabors.ImageSharp;
@@ -7,6 +7,9 @@ using System.Collections.Immutable;
 
 namespace ImageAutomate.StandardBlocks;
 
+/// <summary>
+/// A block that loads images from a directory.
+/// </summary>
 public class LoadBlock : IBlock, IShipmentSource
 {
     #region Fields
@@ -27,7 +30,12 @@ public class LoadBlock : IBlock, IShipmentSource
 
     #region InotifyPropertyChanged
 
+    /// <inheritdoc />
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>
+    /// Raises the PropertyChanged event.
+    /// </summary>
     protected void OnPropertyChanged(string propertyName)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -37,14 +45,21 @@ public class LoadBlock : IBlock, IShipmentSource
 
     #region Basic Properties
 
+    /// <inheritdoc />
     public string Name => "Load";
 
+    /// <inheritdoc />
     public string Title => "Load";
 
+    /// <inheritdoc />
     public string Content => $"Path: {SourcePath}\nAuto Orient: {AutoOrient}";
     #endregion
 
     #region Configuration Propertise
+
+    /// <summary>
+    /// Gets or sets the source directory path.
+    /// </summary>
     [Category("Configuration")]
     [Description("File system path to the input image ")]
     public string SourcePath
@@ -60,6 +75,9 @@ public class LoadBlock : IBlock, IShipmentSource
         }
     }
 
+    /// <summary>
+    /// Gets or sets whether to auto-orient images based on EXIF data.
+    /// </summary>
     [Category("Confiuration")]
     [Description("If true, applies EXIF orientation correction automatically")]
     public bool AutoOrient
@@ -84,18 +102,23 @@ public class LoadBlock : IBlock, IShipmentSource
     #endregion
 
     #region Socket
-    public IReadOnlyList<Socket> Inputs => _inputs;
 
+    /// <inheritdoc />
+    public IReadOnlyList<Socket> Inputs => _inputs;
+    /// <inheritdoc />
     public IReadOnlyList<Socket> Outputs => _outputs;
+
     #endregion
 
     #region Execute
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         return Execute(inputs, CancellationToken.None);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         var items = LoadWorkItems(cancellationToken);
@@ -110,11 +133,13 @@ public class LoadBlock : IBlock, IShipmentSource
             };
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         return Execute(inputs, CancellationToken.None);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         var items = LoadWorkItems(cancellationToken);
@@ -219,6 +244,10 @@ public class LoadBlock : IBlock, IShipmentSource
 
     #region IDisposable
 
+    /// <summary>
+    /// Releases unmanaged and - optionally - managed resources.
+    /// </summary>
+    /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
     protected virtual void Dispose(bool disposing)
     {
         if (!disposedValue)
@@ -227,6 +256,7 @@ public class LoadBlock : IBlock, IShipmentSource
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Dispose(disposing: true);

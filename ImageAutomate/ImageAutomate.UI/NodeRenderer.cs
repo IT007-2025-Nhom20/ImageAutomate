@@ -7,8 +7,14 @@ using GeomNode = Microsoft.Msagl.Core.Layout.Node;
 
 namespace ImageAutomate.UI;
 
+/// <summary>
+/// Handles the low-level GDI+ rendering of nodes and edges in the graph panel.
+/// </summary>
 public sealed class NodeRenderer : IDisposable
 {
+    /// <summary>
+    /// Singleton instance of the renderer.
+    /// </summary>
     public static readonly NodeRenderer Instance = new();
 
     #region Fields
@@ -49,6 +55,9 @@ public sealed class NodeRenderer : IDisposable
         _socketBorderPen = new Pen(Color.White, 1.5f);
     }
 
+    /// <summary>
+    /// Calculates the screen position of a socket based on the block's position and size.
+    /// </summary>
     public static PointF GetSocketPosition(Position blockPosition, Core.Size blockSize, bool isInput)
     {
         if (isInput)
@@ -61,6 +70,9 @@ public sealed class NodeRenderer : IDisposable
         }
     }
 
+    /// <summary>
+    /// Generates a Bezier curve path representing an edge between two blocks.
+    /// </summary>
     public static GraphicsPath GetEdgePath(Position sourcePos, Core.Size sourceSize, Position targetPos, Core.Size targetSize)
     {
         PointF start = GetSocketPosition(sourcePos, sourceSize, isInput: false);
@@ -80,12 +92,18 @@ public sealed class NodeRenderer : IDisposable
         return path;
     }
 
+    /// <summary>
+    /// Draws a connection edge on the graphics surface.
+    /// </summary>
     public void DrawEdge(Graphics g, Position sourcePosition, Core.Size sourceSize, Position targetPosition, Core.Size targetSize, bool isSelected, double socketRadius)
     {
         using var path = GetEdgePath(sourcePosition, sourceSize, targetPosition, targetSize);
         g.DrawPath(isSelected ? _selectedEdgePen : _edgePen, path);
     }
 
+    /// <summary>
+    /// Draws a temporary edge being dragged by the user.
+    /// </summary>
     public void DrawDragEdge(Graphics g, PointF start, PointF end)
     {
         DrawBezier(g, _dragEdgePen, start, end);
@@ -101,6 +119,9 @@ public sealed class NodeRenderer : IDisposable
         g.DrawBezier(pen, start, cp1, cp2, end);
     }
 
+    /// <summary>
+    /// Draws a node (block) on the graphics surface.
+    /// </summary>
     public void DrawNode(Graphics g, IBlock block, Position blockPosition, Core.Size blockSize, bool isSelected, Color selectionColor, double socketRadius)
     {
         RectangleF rect = new(
@@ -220,6 +241,7 @@ public sealed class NodeRenderer : IDisposable
 
     #endregion
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_isDisposed) return;

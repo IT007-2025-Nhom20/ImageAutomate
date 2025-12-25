@@ -1,4 +1,4 @@
-﻿using ImageAutomate.Core;
+using ImageAutomate.Core;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Bmp;
@@ -14,6 +14,9 @@ using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
+/// <summary>
+/// A block that saves images to a directory.
+/// </summary>
 public class SaveBlock : IBlock, IShipmentSink
 {
     #region Fields
@@ -31,23 +34,31 @@ public class SaveBlock : IBlock, IShipmentSink
 
     #region IBlock basic
 
+    /// <inheritdoc />
     public string Name => "Save";
 
+    /// <inheritdoc />
     public string Title => "Save";
 
+    /// <inheritdoc />
     public string Content => $"Output path: {OutputPath}\nOverwrite: {Overwrite}\nCreate directory: {CreateDirectory}";
 
     #endregion
 
     #region Sockets
 
+    /// <inheritdoc />
     public IReadOnlyList<Socket> Inputs => _inputs;
+    /// <inheritdoc />
     public IReadOnlyList<Socket> Outputs => _outputs; // sink block: không output
 
     #endregion
 
     #region Configuration
 
+    /// <summary>
+    /// Gets or sets the output directory path.
+    /// </summary>
     [Category("Configuration")]
     [Description("Directory path for saving the processed images.")]
     public string OutputPath
@@ -63,6 +74,9 @@ public class SaveBlock : IBlock, IShipmentSink
         }
     }
 
+    /// <summary>
+    /// Gets or sets whether to overwrite existing files.
+    /// </summary>
     [Category("Configuration")]
     [Description("If false, prevent overwrite when file already exists.")]
     public bool Overwrite
@@ -78,6 +92,9 @@ public class SaveBlock : IBlock, IShipmentSink
         }
     }
 
+    /// <summary>
+    /// Gets or sets whether to create the output directory if it doesn't exist.
+    /// </summary>
     [Category("Configuration")]
     [Description("If true, automatically creates directories for the OutputPath.")]
     public bool CreateDirectory
@@ -97,7 +114,12 @@ public class SaveBlock : IBlock, IShipmentSink
 
     #region INotifyPropertyChanged
 
+    /// <inheritdoc />
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>
+    /// Raises the PropertyChanged event.
+    /// </summary>
     protected void OnPropertyChanged(string propertyName)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
@@ -105,24 +127,28 @@ public class SaveBlock : IBlock, IShipmentSink
 
     #region Execute
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         return Execute(inputs, CancellationToken.None);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value), cancellationToken);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         return Execute(inputs, CancellationToken.None);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
@@ -235,6 +261,10 @@ public class SaveBlock : IBlock, IShipmentSink
 
     #region IDisposable
 
+    /// <summary>
+    /// Releases unmanaged and - optionally - managed resources.
+    /// </summary>
+    /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
     protected virtual void Dispose(bool disposing)
     {
         if (!_disposed)
@@ -243,6 +273,7 @@ public class SaveBlock : IBlock, IShipmentSink
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Dispose(true);

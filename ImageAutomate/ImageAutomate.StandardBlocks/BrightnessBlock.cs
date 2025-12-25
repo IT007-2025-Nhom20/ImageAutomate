@@ -1,4 +1,4 @@
-﻿using ImageAutomate.Core;
+using ImageAutomate.Core;
 using SixLabors.ImageSharp.Processing;
 using System;
 using System.Collections.Generic;
@@ -9,6 +9,9 @@ using System.Threading.Tasks;
 
 namespace ImageAutomate.StandardBlocks;
 
+/// <summary>
+/// A block that adjusts the brightness of an image.
+/// </summary>
 public class BrightnessBlock : IBlock
 {
     #region Fields
@@ -24,23 +27,32 @@ public class BrightnessBlock : IBlock
 
     #region IBlock basic
 
+    /// <inheritdoc />
     public string Name => "Brightness";
 
+    /// <inheritdoc />
     public string Title => "Brightness";
 
+    /// <inheritdoc />
     public string Content => $"Brightness: {Bright}";
 
     #endregion
 
     #region Sockets
 
+    /// <inheritdoc />
     public IReadOnlyList<Socket> Inputs => _inputs;
+    /// <inheritdoc />
     public IReadOnlyList<Socket> Outputs => _outputs;
 
     #endregion
 
     #region Configuration
 
+    /// <summary>
+    /// Gets or sets the brightness factor.
+    /// 1.0 = no change, &lt; 1.0 = darker, &gt; 1.0 = brighter.
+    /// </summary>
     [Category("Configuration")]
     [Description("Brightness factor. 1.0 = no change, <1.0 = darker, >1.0 = brighter.")]   
     public float Bright
@@ -61,8 +73,13 @@ public class BrightnessBlock : IBlock
 
     #region INotifyPropertyChanged
 
+    /// <inheritdoc />
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>
+    /// Raises the PropertyChanged event.
+    /// </summary>
+    /// <param name="propertyName">The name of the property that changed.</param>
     protected void OnPropertyChanged(string propertyName)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
@@ -70,24 +87,28 @@ public class BrightnessBlock : IBlock
 
     #region Execute
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         return Execute(inputs, CancellationToken.None);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value), cancellationToken);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         return Execute(inputs, CancellationToken.None);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
@@ -110,6 +131,10 @@ public class BrightnessBlock : IBlock
 
     #region IDisposable
 
+    /// <summary>
+    /// Releases unmanaged and - optionally - managed resources.
+    /// </summary>
+    /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
     protected virtual void Dispose(bool disposing)
     {
         if (!_disposed)
@@ -118,6 +143,7 @@ public class BrightnessBlock : IBlock
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Dispose(true);

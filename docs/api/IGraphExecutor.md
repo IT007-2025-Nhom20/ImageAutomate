@@ -1,6 +1,6 @@
 # IGraphExecutor
 
-The `IGraphExecutor` interface defines the contract for executing a `PipelineGraph`.
+`IGraphExecutor` defines the interface for the execution engine responsible for processing the `PipelineGraph`.
 
 ## Definition
 
@@ -8,6 +8,7 @@ The `IGraphExecutor` interface defines the contract for executing a `PipelineGra
 public interface IGraphExecutor
 {
     void Execute(PipelineGraph graph);
+
     Task ExecuteAsync(
         PipelineGraph graph,
         ExecutorConfiguration? configuration = null,
@@ -17,14 +18,14 @@ public interface IGraphExecutor
 
 ## Methods
 
-### `Execute(PipelineGraph graph)`
-Executes the provided graph synchronously. This method blocks the calling thread until execution completes.
+### `Execute`
+Synchronously executes the provided pipeline graph.
+*   **Parameters**: `graph` - The `PipelineGraph` to execute.
 
-### `ExecuteAsync(...)`
-Executes the graph asynchronously.
-
+### `ExecuteAsync`
+Asynchronously executes the pipeline graph, allowing for configuration and cancellation.
 *   **Parameters**:
     *   `graph`: The `PipelineGraph` to execute.
-    *   `configuration`: Optional `ExecutorConfiguration` to tune execution parameters (e.g., parallelism, shipment size).
-    *   `cancellationToken`: Token to request cooperative cancellation of the pipeline.
-*   **Returns**: A `Task` representing the asynchronous operation.
+    *   `configuration`: Optional `ExecutorConfiguration` to tune execution parameters (e.g., concurrency limits).
+    *   `cancellationToken`: Token to cancel the execution operation.
+*   **Returns**: A `Task` representing the asynchronous execution.

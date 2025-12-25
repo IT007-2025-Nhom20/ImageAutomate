@@ -1,10 +1,13 @@
-﻿using ImageAutomate.Core;
+using ImageAutomate.Core;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
+/// <summary>
+/// Defines how the crop region is determined.
+/// </summary>
 public enum CropModeOption
 {
     Rectangle,
@@ -12,6 +15,9 @@ public enum CropModeOption
     Anchor
 }
 
+/// <summary>
+/// Defines the anchor point for anchor-based cropping.
+/// </summary>
 public enum AnchorPositionOption
 {
     TopLeft,
@@ -24,6 +30,10 @@ public enum AnchorPositionOption
     Bottom,
     BottomRight
 }
+
+/// <summary>
+/// A block that crops an image.
+/// </summary>
 public class CropBlock : IBlock
 {
     #region Fields
@@ -45,10 +55,13 @@ public class CropBlock : IBlock
 
     #region IBlock basic
 
+    /// <inheritdoc />
     public string Name => "Crop";
 
+    /// <inheritdoc />
     public string Title => "Crop";
 
+    /// <inheritdoc />
     public string Content
     {
         get 
@@ -69,13 +82,18 @@ public class CropBlock : IBlock
 
     #region Sockets
 
+    /// <inheritdoc />
     public IReadOnlyList<Socket> Inputs => _inputs;
+    /// <inheritdoc />
     public IReadOnlyList<Socket> Outputs => _outputs;
 
     #endregion
 
     #region Configuration
 
+    /// <summary>
+    /// Gets or sets the crop mode.
+    /// </summary>
     [Category("Configuration")]
     [Description("Crop mode controlling how the crop region is selected.")]
     public CropModeOption CropMode
@@ -91,6 +109,9 @@ public class CropBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Gets or sets the X coordinate for Rectangle mode.
+    /// </summary>
     [Category("Configuration")]
     [Description("Left coordinate (X) of crop origin in pixels (Rectangle mode).")]
     public int X
@@ -109,6 +130,9 @@ public class CropBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Gets or sets the Y coordinate for Rectangle mode.
+    /// </summary>
     [Category("Configuration")]
     [Description("Top coordinate (Y) of crop origin in pixels (Rectangle mode).")]
     public int Y
@@ -127,6 +151,9 @@ public class CropBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Gets or sets the width of the cropped area.
+    /// </summary>
     [Category("Configuration")]
     [Description("Crop width in pixels.")]
     public int CropWidth
@@ -145,6 +172,9 @@ public class CropBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Gets or sets the height of the cropped area.
+    /// </summary>
     [Category("Configuration")]
     [Description("Crop height in pixels.")]
     public int CropHeight
@@ -163,6 +193,9 @@ public class CropBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Gets or sets the anchor position for Anchor mode.
+    /// </summary>
     [Category("Configuration")]
     [Description("Anchor position for Anchor crop mode.")]
     public AnchorPositionOption AnchorPosition
@@ -182,8 +215,12 @@ public class CropBlock : IBlock
 
     #region INotifyPropertyChanged
 
+    /// <inheritdoc />
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>
+    /// Raises the PropertyChanged event.
+    /// </summary>
     protected void OnPropertyChanged(string propertyName)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
@@ -191,24 +228,28 @@ public class CropBlock : IBlock
 
     #region Execute
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         return Execute(inputs, CancellationToken.None);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value), cancellationToken);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         return Execute(inputs, CancellationToken.None);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
@@ -341,6 +382,10 @@ public class CropBlock : IBlock
 
     #region IDisposable
 
+    /// <summary>
+    /// Releases unmanaged and - optionally - managed resources.
+    /// </summary>
+    /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
     protected virtual void Dispose(bool disposing)
     {
         if (!_disposed)
@@ -349,6 +394,7 @@ public class CropBlock : IBlock
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Dispose(true);

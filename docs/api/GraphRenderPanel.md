@@ -1,98 +1,47 @@
 # GraphRenderPanel
 
-`GraphRenderPanel` is a high-performance, custom-drawn Windows Forms control responsible for visualizing the `PipelineGraph`. It inherits from `System.Windows.Forms.Panel` and uses GDI+ for rendering, leveraging MSAGL for layout computation.
+`GraphRenderPanel` is a high-performance, custom-drawn Windows Forms control responsible for visualizing and interacting with the `PipelineGraph`.
 
 ## Overview
 
-This control provides a comprehensive visualization of the image processing workflow, featuring:
-*   **Automatic Layout**: Uses MSAGL layered layout to organize nodes.
-*   **Navigation**: Pan and Zoom support with "zoom-to-cursor" behavior.
-*   **Styling**: Custom-rendered nodes with headers, properties, and socket connections.
-*   **Binding**: Binds to a `PipelineGraph` instance.
+*   **Custom Rendering**: Uses GDI+ to draw nodes, sockets, and bezier connections.
+*   **Interaction**: Supports dragging nodes, creating connections, panning, and zooming.
+*   **Layout Support**: Integrates with `Workspace` and `ViewState` to persist layout information.
 
 ## API Reference
 
 ### Properties
 
 #### Data Binding
-*   **`Graph`** (`PipelineGraph?`)
-    *   The main data source for the panel. Assigning a `PipelineGraph` instance triggers an automatic layout calculation and repaint.
-    *   Default: `null` (renders nothing).
-
-#### Layout Configuration
-*   **`ColumnSpacing`** (`double`)
-    *   Horizontal distance between graph layers.
-    *   Default: `250`.
-*   **`NodeSpacing`** (`double`)
-    *   Vertical distance between nodes within the same layer.
-    *   Default: `30`.
-
-#### Interaction & Behavior
-*   **`RenderScale`** (`float`)
-    *   The current zoom level of the graph.
-*   **`AllowOutOfScreenPan`** (`bool`)
-    *   Determines if the user can pan the graph completely out of the viewport.
-    *   Default: `false`.
+*   **`Workspace`** (`Workspace?`): The workspace containing the graph and view state.
+*   **`Graph`** (`PipelineGraph?`): Read-only shortcut to `Workspace.Graph`.
 
 #### Appearance
-*   **`SelectedBlockOutlineColor`** (`Color`)
-    *   Color of the border highlight for the `Center` block.
-    *   Default: `Color.Red`.
-*   **`SocketRadius`** (`double`)
-    *   Visual size of the input/output connection points.
-    *   Default: `6`.
+*   **`SelectedBlockOutlineColor`** (`Color`): Color of the selection border. Default: `Red`.
+*   **`SocketRadius`** (`double`): Size of connection sockets. Default: `6`.
+*   **`RenderScale`** (`float`): Current zoom level. Default: `1.0`.
+
+#### Behavior
+*   **`AllowOutOfScreenPan`** (`bool`): Whether the graph can be panned off-screen. Default: `false`.
+*   **`AutoSnapZoneWidth`** (`float`): Width of the zone around sockets for easier connection snapping.
 
 ### Methods
 
-#### `AddBlockAndConnect(...)`
-Adds blocks to the graph (if missing) and connects them.
-```csharp
-void AddBlockAndConnect(IBlock sourceBlock, Socket sourceSocket, IBlock destBlock, Socket destSocket)
-```
+#### Graph Manipulation
+*   **`AddBlockAndConnect(...)`**: Adds blocks and creates a connection between them.
+*   **`AddSuccessor(...)`**: Connects the selected block to a new downstream block.
+*   **`AddPredecessor(...)`**: Connects a new upstream block to the selected block.
+*   **`DeleteBlock(IBlock block)`**: Removes a block.
+*   **`DeleteConnection(Connection connection)`**: Removes a connection.
+*   **`DeleteSelectedItem()`**: Removes the currently selected block or connection.
 
-#### `AddSuccessor(...)`
-Connects the currently selected block (`Graph.Center`) to a new downstream block.
-```csharp
-void AddSuccessor(Socket sourceSocket, IBlock destBlock, Socket destSocket)
-```
-
-#### `AddPredecessor(...)`
-Connects a new upstream block to the currently selected block (`Graph.Center`).
-```csharp
-void AddPredecessor(IBlock sourceBlock, Socket sourceSocket, Socket destSocket)
-```
-
-#### `CenterCameraOnGraph()`
-Pans the view to center the graph content within the viewport.
-```csharp
-void CenterCameraOnGraph()
-```
+#### View Control
+*   **`GetViewportCenterWorld()`**: Returns the world coordinates of the viewport center.
 
 ## User Interaction
 
-*   **Pan**: Click and drag with the **Left Mouse Button**.
-*   **Zoom**: Scroll the **Mouse Wheel**.
-*   **Select**: Click on a node to make it the `Center` of the graph.
-
-## Integration Example
-
-```csharp
-// 1. Create the Control
-var graphPanel = new GraphRenderPanel
-{
-    Dock = DockStyle.Fill
-};
-this.Controls.Add(graphPanel);
-
-// 2. Prepare the Data
-var graph = new PipelineGraph();
-var block = new ConvertBlock { Width = 200, Height = 120 };
-graph.AddBlock(block);
-
-// 3. Bind
-graphPanel.Graph = graph;
-```
-
-## Customization
-
-The panel uses a strategy pattern for node rendering via the internal `NodeRenderer` class. It uses `OptimizedStrategy` which leverages cached `GraphicsPath` objects.
+*   **Left Click**: Select node/edge.
+*   **Left Drag (Node)**: Move node.
+*   **Left Drag (Socket)**: Create connection.
+*   **Right Drag**: Pan the view.
+*   **Mouse Wheel**: Zoom in/out.

@@ -1,8 +1,8 @@
-# WorkItem
+# Work Items
 
-`WorkItem` is the fundamental unit of data in the ImageAutomate pipeline. It encapsulates the data being processed (images) along with metadata.
+The `IWorkItem` family of interfaces defines the units of data that flow through the ImageAutomate pipeline.
 
-## Interfaces
+## Core Interfaces
 
 ### `IBasicWorkItem`
 The base interface for all work items.
@@ -15,13 +15,13 @@ public interface IBasicWorkItem : IDisposable, ICloneable
 }
 ```
 
-*   **`Id`**: A unique identifier for the work item.
-*   **`Metadata`**: A key-value store for additional information.
-*   **`IDisposable`**: Ensures resources (images) can be released.
-*   **`ICloneable`**: Supports deep cloning of the work item.
+*   **`Id`**: Unique identifier for the work item.
+*   **`Metadata`**: Immutable dictionary for storing additional information (e.g., file paths, format info).
+*   **`IDisposable`**: Ensures resources (like images) are released.
+*   **`ICloneable`**: Supports deep copying for branching paths in the graph.
 
 ### `IWorkItem`
-Represents a work item containing a single image.
+Represents a single image work item.
 
 ```csharp
 public interface IWorkItem : IBasicWorkItem
@@ -31,11 +31,11 @@ public interface IWorkItem : IBasicWorkItem
 }
 ```
 
-*   **`Image`**: The `SixLabors.ImageSharp.Image` object associated with this item.
+*   **`Image`**: The `SixLabors.ImageSharp.Image` object.
 *   **`SizeMP`**: The size of the image in megapixels (Width * Height / 1,000,000).
 
 ### `IBatchWorkItem`
-Represents a work item containing a collection of images.
+Represents a collection of images processed as a single unit.
 
 ```csharp
 public interface IBatchWorkItem : IBasicWorkItem
@@ -45,30 +45,19 @@ public interface IBatchWorkItem : IBasicWorkItem
 }
 ```
 
-*   **`Images`**: A read-only list of images.
-*   **`TotalSizeMP`**: The cumulative size of all images in megapixels.
+*   **`Images`**: A list of `Image` objects.
+*   **`TotalSizeMP`**: The cumulative size of all images in the batch.
 
 ## Implementations
 
 ### `WorkItem`
-The standard implementation of `IWorkItem`.
-
-```csharp
-public sealed class WorkItem(Image image, IImmutableDictionary<string, object>? metadata = null) : IWorkItem
-```
-
-*   **Construction**: Automatically calculates `SizeMP` upon initialization.
-*   **Immutability**: The metadata is immutable.
-*   **Lifecycle**: When `Dispose()` is called, the `Image` is disposed.
-*   **Cloning**: `Clone()` creates a deep copy of the image and the work item.
+Standard implementation of `IWorkItem`.
+*   Constructor: `WorkItem(Image image, IImmutableDictionary<string, object>? metadata = null)`
+*   Automatically calculates `SizeMP`.
+*   Deep clones the image when `Clone()` is called.
 
 ### `BatchWorkItem`
-The standard implementation of `IBatchWorkItem`.
-
-```csharp
-public sealed class BatchWorkItem(IEnumerable<Image> images, IImmutableDictionary<string, object>? metadata = null) : IBatchWorkItem
-```
-
-*   **Construction**: Automatically calculates `TotalSizeMP` upon initialization.
-*   **Lifecycle**: When `Dispose()` is called, all images in the `Images` list are disposed.
-*   **Cloning**: `Clone()` creates deep copies of all images in the list.
+Standard implementation of `IBatchWorkItem`.
+*   Constructor: `BatchWorkItem(IEnumerable<Image> images, IImmutableDictionary<string, object>? metadata = null)`
+*   Automatically calculates `TotalSizeMP`.
+*   Deep clones all images when `Clone()` is called.

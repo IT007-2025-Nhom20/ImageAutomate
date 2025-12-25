@@ -1,26 +1,29 @@
 # ExecutionContext
 
-`ExecutionContext` manages the runtime state of a pipeline execution. It encapsulates the topology analysis, state tracking, and synchronization primitives used by the Execution Engine.
-
-> **Note**: This class is `internal` to the `ImageAutomate.Execution` assembly and is not intended for direct public use. However, understanding its role is crucial for understanding the engine's internal mechanics.
+`ExecutionContext` is an internal class that maintains the runtime state of a pipeline execution. While not a public API, it is central to the engine's operation.
 
 ## Responsibilities
 
-*   **Topology Analysis**: Precomputes In-Degree, Out-Degree, and Adjacency lists (Upstream/Downstream).
-*   **State Tracking**: Tracks the `BlockExecutionState` (Pending, Ready, Running, Completed) of each block.
-*   **Synchronization**: Manages `Warehouse` (Data) and `DependencyBarrier` (Control) instances.
-*   **Cycle Management**: Handles "Active Sources" and resets state for shipment-based execution.
+*   **Topology Analysis**: Precomputes in-degrees, out-degrees, and adjacency lists for efficient graph traversal.
+*   **State Management**: Tracks the execution state (`Pending`, `Running`, `Completed`, `Failed`) of each block.
+*   **Synchronization**: Manages `Warehouse` (data buffers) and `DependencyBarrier` (synchronization primitives) instances.
+*   **Progress Tracking**: Counters for active blocks and processed shipments.
+*   **Source Management**: Tracks active source blocks to handle graph termination conditions.
 
 ## Key Properties
 
 *   **`Graph`**: The `PipelineGraph` being executed.
-*   **`ActiveBlockCount`**: The number of currently executing blocks.
-*   **`ProcessedShipmentCount`**: A metric for tracking progress across multiple shipment cycles.
-*   **`HasActiveSources`**: Indicates if any source block is still capable of producing data.
+*   **`Configuration`**: The `ExecutorConfiguration` in use.
+*   **`Scheduler`**: The `IScheduler` strategy.
+*   **`CancellationToken`**: Token for cancellation.
+*   **`ActiveBlockCount`**: Current number of running blocks.
+*   **`ProcessedShipmentCount`**: Total number of completed execution units.
 
-## Lifecycle Management
+## Methods (Internal)
 
-1.  **Initialization**: Computes topology and initializes degrees.
-2.  **Shipment Cycle**:
-    *   `InitializeActiveConnections()`: Determines which connections are active based on available sources.
-    *   `ResetForNextShipment()`: Clears Warehouses/Barriers and resets block states for the next batch of data.
+*   `GetOrCreateWarehouse(IBlock block)`
+*   `GetOrCreateBarrier(IBlock block, int dependencyCount)`
+*   `GetBlockState(IBlock block)` / `SetBlockState(...)`
+*   `RecordException(Exception exception)`
+*   `MarkSourceActive(IBlock source)` / `MarkSourceInactive(...)`
+*   `ResetForNextShipment()`: Clears transient state for the next processing cycle.

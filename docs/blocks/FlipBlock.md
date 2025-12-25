@@ -1,31 +1,31 @@
-# FR-FLP-001: Flip Image Block
+# Flip Block
 
 ## Description
-Block shall flip images horizontally or vertically using ImageSharp. Supports mirroring across X or Y axes.
+Block shall flip images horizontally or vertically.
+
+---
 
 ## Configuration Parameters
 
-### FlipMode
-Supported values:
-- Horizontal
-- Vertical
+### `FlipMode`
+Specifies the direction of the flip.
+- **Horizontal**: Mirrors the image along the vertical axis (left becomes right).
+- **Vertical**: Mirrors the image along the horizontal axis (top becomes bottom).
+
+---
 
 ## Acceptance Criteria
-- Image must flip according to selected FlipMode.
-- Final output must be pixel-identical to ImageSharp flip behavior.
-- Metadata (EXIF, ICC, DPI) preserved.
+- Output image is flipped according to the `FlipMode`.
+- Image dimensions and format are preserved.
+
+---
 
 ## UI Behaviour
-- FlipMode selectable via dropdown.
-- No additional parameters required.
+- **FlipMode** dropdown allows selecting "Horizontal" or "Vertical".
+
+---
 
 ## Operational Behaviour
-- Implemented via:
-  - image.Mutate(x => x.Flip(FlipMode.Horizontal))
-  - image.Mutate(x => x.Flip(FlipMode.Vertical))
-- Alpha channel preserved.
-- Output format unchanged.
 
-## Technical Notes
-- Flipping is O(n) and memory-efficient.
-- Works on all ImageSharp-supported formats.
+### Execution
+- Applies `Image.Mutate(x => x.Flip(...))` using `FlipMode.Horizontal` or `FlipMode.Vertical`.
