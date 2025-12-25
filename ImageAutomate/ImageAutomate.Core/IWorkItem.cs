@@ -14,7 +14,7 @@ namespace ImageAutomate.Core;
 public interface IBasicWorkItem : IDisposable, ICloneable
 {
     Guid Id { get; }
-    IImmutableDictionary<string, object> Metadata { get; }
+    IImmutableDictionary<string, object> Metadata { get; set; }
 }
 
 /// <summary>

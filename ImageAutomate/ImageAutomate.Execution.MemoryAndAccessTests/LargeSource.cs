@@ -81,7 +81,7 @@ public class WorkItem : IWorkItem
 
     public Guid Id { get; }
 
-    public IImmutableDictionary<string, object> Metadata { get; }
+    public IImmutableDictionary<string, object> Metadata { get; set; }
 
     public object Clone()
     {

@@ -235,7 +235,25 @@ Since `Warehouses` hold data until *all* consumers have read it, "partial consum
 ### 5.2. Deterministic Disposal
 
 * **Warehouse Cleanup:** Occurs automatically when the last consumer reads the data (Counter reaches 0). Internal reference is nulled (GC eligible).
-* **Input Disposal:** Once a consumer `block` finishes execution, the `Engine` immediately calls `workItem.Dispose()` on all input `WorkItems`. This disposes the underlying `Image<TPixel>` objects.
+* **Input Disposal:** Once a consumer `block` finishes execution, the `Engine` calls `workItem.Dispose()` on consumed input `WorkItems`. This disposes the underlying `Image<TPixel>` objects.
+
+    > **In-Place Mutation Handling:** Many processor `blocks` (e.g., Brightness, Contrast, Vignette) mutate the input image in-place using `Image.Mutate()` and return the **same `WorkItem` object** as output. To prevent disposing items that are also stored in the output `Warehouse`, the `Engine` builds a reference-equality `HashSet` of output items and skips disposal for any input item present in that set.
+    >
+    > ```csharp
+    > // Build set of output items to skip (blocks may return mutated inputs)
+    > HashSet<IBasicWorkItem>? outputItems = outputs?.Values
+    >     .SelectMany(list => list)
+    >     .ToHashSet(ReferenceEqualityComparer.Instance);
+    >
+    > foreach (var item in inputs.Values.SelectMany(list => list))
+    > {
+    >     if (outputItems == null || !outputItems.Contains(item))
+    >         item.Dispose();
+    > }
+    > ```
+    >
+    > **Design Rationale:** This approach is forward-compatible with future **filter-type blocks** that drop items based on conditions (e.g., discard images below a quality threshold). Dropped items will not appear in outputs and will be properly disposed.
+
 * **Blocked Blocks:** If a `block` is marked "`Blocked`[^C.9]" (downstream of a failure), the `Engine`:
     1. Atomically decrements upstream `Warehouse` counters for that `block`'s inputs (as if it consumed them). This ensures `Warehouses` are properly cleaned up even when consumers are skipped.
     2. Does NOT execute the `block` (no actual data consumption).

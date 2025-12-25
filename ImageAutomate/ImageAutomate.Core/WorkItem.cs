@@ -10,8 +10,11 @@ public sealed class WorkItem : IWorkItem
     public Image Image { get; }
     public float SizeMP { get; }
     private IImmutableDictionary<string, object>? _metadata;
-    public IImmutableDictionary<string, object> Metadata =>
-        _metadata ??= ImmutableDictionary<string, object>.Empty;
+    public IImmutableDictionary<string, object> Metadata
+    {
+        get => _metadata ??= ImmutableDictionary<string, object>.Empty;
+        set => _metadata = value;
+    }
 
     /// <summary>
     /// Represents a unit of work that encapsulates an image and associated metadata for processing.
@@ -74,8 +77,11 @@ public sealed class BatchWorkItem(IEnumerable<Image> images, IImmutableDictionar
     private IImmutableDictionary<string, object>? _metadata = metadata;
     public IReadOnlyList<Image> Images { get; } = [.. images ?? throw new ArgumentNullException(nameof(images))];
     public float TotalSizeMP => Images.Sum(img => img.Width * img.Height / 1_000_000f);
-    public IImmutableDictionary<string, object> Metadata =>
-        _metadata ??= ImmutableDictionary<string, object>.Empty;
+    public IImmutableDictionary<string, object> Metadata
+    {
+        get => _metadata ??= ImmutableDictionary<string, object>.Empty;
+        set => _metadata = value;
+    }
     
     public void Dispose()
     {

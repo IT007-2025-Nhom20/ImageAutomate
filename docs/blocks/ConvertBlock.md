@@ -1,8 +1,9 @@
 # Convert Block
 
 ## Description
-Block shall convert images between supported formats using ImageSharp.
-Supports re-encoding, metadata preservation, alpha handling, and configurable encoder options.
+Prepares images for format conversion by setting target format metadata.
+The actual encoding is performed by `SaveBlock` using the metadata instructions.
+Supports configurable encoder options for each target format.
 
 ---
 
@@ -18,83 +19,63 @@ Specifies desired output format. Supported values:
 - Tga
 - WebP
 - Qoi
-- (Pbm, Unknown are present in enum but may be unimplemented)
+- Pbm
 
-### AlwaysEncode
-Boolean.
-- false = passthrough unless encoder options change or format changes
-- true = always re-encode
+### JpegOptions / PngOptions / BmpOptions / GifOptions / TiffOptions / TgaOptions / WebPOptions / QoiOptions / PbmOptions
+Format-specific encoder configuration, exposed based on `TargetFormat`:
 
-### EncodingOptions
-Format-specific encoder configuration:
-- JPEG: Quality
-- PNG: CompressionLevel
-- WEBP: Quality, Lossless
-- TIFF: Compression
-- BMP: BitsPerPixel
-- GIF: UseDithering, ColorPaletteSize
-- TGA: Compress
-- QOI: IncludeAlpha
-Displayed only for relevant TargetFormat.
+| Format | Options |
+|--------|---------|
+| JPEG | Quality, ColorType, Interleaved |
+| PNG | CompressionLevel, BitDepth, ColorType, InterlaceMode, ChunkFilter, TransparentColorMode |
+| WebP | Quality, FileFormat (Lossy/Lossless), NearLossless, NearLosslessQuality, SkipMetadata, TransparentColorMode, Quantizer |
+| TIFF | Compression, BitsPerPixel, PhotometricInterpretation, HorizontalPredictor, CompressionLevel |
+| BMP | BitsPerPixel, SupportTransparency, QuantizerOptions |
+| GIF | ColorTableMode, QuantizerOptions |
+| TGA | Compression, BitsPerPixel |
+| QOI | ColorSpace, Channels |
+| PBM | ColorType, ComponentType, Encoding |
 
 ---
 
 ## Acceptance Criteria
-- Produces a valid output file in TargetFormat.
-- Encoder parameters applied correctly.
-- Metadata preserved only when applicable (logic inside Execute handles deep cloning/modification).
-- Passthrough occurs only when source and target formats match and AlwaysEncode = false.
-- Transparency preserved for formats with alpha support; flattened for non-alpha formats.
+- Sets `Format` and `EncodingOptions` metadata on output WorkItems.
+- Encoder parameters stored correctly for downstream `SaveBlock`.
+- Image data passed through (cloned for ownership transfer).
 
 ---
 
 ## UI Behaviour
 - TargetFormat dropdown displays supported formats.
-- EncodingOptions shows only parameters relevant to selected TargetFormat.
-- JPEG  exposes Quality list.
-- PNG exposes CompressionLevel list.
-- WEBP exposes  Quality list and Lossless true/false.
-- BMP exposes BitsPerPixel value.
-- GIF exposes UseDithering true/false and ColorPaletteSize value.
-- TIFF exposes Compression list.
-- TGA exposes Compress true/false.
-- QOI exposes IncludeAlpha true/false
+- Only the relevant format options panel is shown based on TargetFormat selection.
 
 ---
 
 ## Operational Behaviour
 
-### Format Detection
-Input format auto-detected using:
-```csharp
-var info = Image.Identify(stream);
-```
+### Metadata Updates
+The block sets the following metadata on each WorkItem:
+- `"Format"`: Target format name (e.g., "Jpeg", "Png")
+- `"EncodingOptions"`: The format-specific options object
 
-### Conversion Rules
-- Re-encode when:
-  - TargetFormat differs from source format
-  - EncodingOptions provided
-  - AlwaysEncode = true
-- Passthrough allowed only when:
-  - Formats match
-  - No EncodingOptions set
-  - AlwaysEncode = false
+### Image Handling
+ConvertBlock creates a **new `WorkItem`** with a **cloned image** and updated metadata.
+This is required because:
+1. `WorkItem.Metadata` is immutable - a new `WorkItem` is needed to carry updated format instructions
+2. The executor disposes input `WorkItems` after block execution
 
-### Metadata
-Metadata is passed via `WorkItem` metadata dictionary, setting "Format" and "EncodingOptions".
-The actual image conversion happens later (possibly in SaveBlock or during processing if forced).
-**Note**: The current `ConvertBlock` implementation updates metadata but returns a `WorkItem` with the *original* image if not explicitly re-encoded immediately?
-Wait, the code in `Execute` creates a new `WorkItem` with the *same* image but updated metadata. This suggests the actual pixel conversion might be deferred or handled by `SaveBlock` using the metadata instructions.
-The `Execute` method sets `Format` and `EncodingOptions` in metadata.
+The actual format conversion/encoding is performed by `SaveBlock` using the metadata.
 
 ### Transparency
-- For non-alpha formats (JPEG, BMP), transparency is flattened to white (handled by encoder).
-- Alpha preserved for PNG, TGA, TIFF, WebP, QOI.
+Transparency handling depends on target format and is applied at save time:
+- Non-alpha formats (JPEG, BMP without transparency): Alpha flattened by encoder
+- Alpha-capable formats (PNG, TGA, TIFF, WebP, QOI): Alpha preserved
 
 ---
 
 ## Technical Notes
-- ImageSharp supports all listed formats.
-- ICC profiles preserved unless explicitly removed.
+- This block does **not** perform actual format conversion - it only sets metadata instructions.
+- `SaveBlock` reads the `Format` and `EncodingOptions` metadata to perform the actual encoding.
+- ICC profiles and other image metadata are preserved through the pipeline.
 - Animated GIFs: only first frame processed (Image is single frame in WorkItem).
 - Large batch operations may require memory warnings and sequential processing.

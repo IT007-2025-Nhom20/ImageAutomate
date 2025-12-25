@@ -35,7 +35,7 @@ public class MockWorkItem : IWorkItem
 
     public Guid Id { get; }
 
-    public IImmutableDictionary<string, object> Metadata { get; }
+    public IImmutableDictionary<string, object> Metadata { get; set; }
 
     public Image Image { get; }
 
@@ -62,7 +62,7 @@ public class MutableWorkItem : IBasicWorkItem, ICloneable
     public string Value { get; set; }
     public float SizeMP => 0;
 
-    public IImmutableDictionary<string, object> Metadata => ImmutableDictionary<string, object>.Empty;
+    public IImmutableDictionary<string, object> Metadata { get; set; } = ImmutableDictionary<string, object>.Empty;
 
     public MutableWorkItem(string value) { Value = value; }
 
