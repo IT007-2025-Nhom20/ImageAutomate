@@ -31,7 +31,7 @@ public class StandardBlocksTests : StandardBlockTestBase
     [MemberData(nameof(TestConfigs))]
     public async Task BrightnessBlock(string res, int count, int batch)
     {
-        var block = new BrightnessBlock { Bright = 1.2f };
+        var block = new BrightnessBlock { Brightness = 1.2f };
         await TestBlock(block, res, count, batch);
     }
 
