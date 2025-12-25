@@ -50,7 +50,7 @@ public class SaveBlock : IBlock, IShipmentSink
     /// <inheritdoc />
     public IReadOnlyList<Socket> Inputs => _inputs;
     /// <inheritdoc />
-    public IReadOnlyList<Socket> Outputs => _outputs; // sink block: không output
+    public IReadOnlyList<Socket> Outputs => _outputs;
 
     #endregion
 

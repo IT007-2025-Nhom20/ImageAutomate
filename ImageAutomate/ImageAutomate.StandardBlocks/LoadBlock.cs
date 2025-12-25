@@ -78,7 +78,7 @@ public class LoadBlock : IBlock, IShipmentSource
     /// <summary>
     /// Gets or sets whether to auto-orient images based on EXIF data.
     /// </summary>
-    [Category("Confiuration")]
+    [Category("Configuration")]
     [Description("If true, applies EXIF orientation correction automatically")]
     public bool AutoOrient
     {
