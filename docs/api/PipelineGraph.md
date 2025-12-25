@@ -6,55 +6,49 @@
 
 *   **Block Management**: Adds and removes `IBlock` instances.
 *   **Connection Management**: Connects sockets between blocks (`Connection` records).
-*   **State Tracking**: Maintains the `Center` block (selected block) and raises `GraphChanged` events.
+*   **State Tracking**: Maintains the `SelectedItem` and raises `OnNodeRemoved` events.
+*   **Serialization**: Provides methods to convert the graph to and from JSON.
 
 ## Key Components
 
 ### Properties
 
-*   **`Blocks`**: `IReadOnlyList<IBlock>` - Returns all blocks in the graph.
-*   **`Connections`**: `IReadOnlyList<Connection>` - Returns all connections in the graph.
-*   **`Center`**: `IBlock?` - The currently focused or selected block.
+*   **`Nodes`**: `IReadOnlyList<IBlock>` - Returns all blocks in the graph.
+*   **`Edges`**: `IReadOnlyList<Connection>` - Returns all connections in the graph.
+*   **`SelectedItem`**: `object?` - The currently selected item (Block or Connection).
 
 ### Events
 
-*   **`GraphChanged`**: `EventHandler?` - Occurs when the graph structure changes (nodes/edges added or removed).
+*   **`OnNodeRemoved`**: `Action<IBlock>?` - Occurs when a node is removed from the graph.
 
 ### Methods
 
 #### `AddBlock(IBlock block)`
-Adds a block to the graph.
+Adds a block to the graph if it is not already present.
 
-#### `RemoveBlock(IBlock block)`
+#### `RemoveNode(IBlock block)`
 Removes a block and all its associated connections.
 
-#### `Connect(...)`
+#### `AddEdge(...)`
 Establishes a connection between a source block's output socket and a target block's input socket.
 
 **Overloads:**
-*   `Connect(IBlock source, Socket sourceSocket, IBlock target, Socket targetSocket)`
-*   `Connect(IBlock source, string sourceSocketId, IBlock target, string targetSocketId)`
+*   `AddEdge(IBlock source, Socket sourceSocket, IBlock target, Socket targetSocket)`
+*   `AddEdge(IBlock source, string sourceSocketId, IBlock target, string targetSocketId)`
 
-#### `Disconnect(Connection connection)`
+#### `RemoveEdge(Connection edge)`
 Removes a specific connection.
+
+#### `BringToTop(IBlock block)`
+Moves the specified block to the end of the node list, effectively bringing it to the visual front.
 
 #### `Clear()`
 Resets the graph to an empty state.
 
-#### Serialization (Pending)
-*   **`ToJson()`**: Not implemented.
-*   **`FromJson(string json)`**: Not implemented.
+### Serialization
 
-## Usage
+#### `ToJson()`
+Serializes the current graph structure to a JSON string.
 
-```csharp
-var graph = new PipelineGraph();
-var blockA = new ConvertBlock();
-var blockB = new ResizeBlock();
-
-graph.AddBlock(blockA);
-graph.AddBlock(blockB);
-
-// Connect output of A to input of B
-graph.Connect(blockA, blockA.Outputs[0], blockB, blockB.Inputs[0]);
-```
+#### `FromJson(string json)`
+Static method that creates a new `PipelineGraph` instance from a JSON string.

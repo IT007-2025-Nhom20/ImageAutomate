@@ -1,4 +1,4 @@
-﻿using ImageAutomate.Core;
+using ImageAutomate.Core;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Transforms;
@@ -6,15 +6,9 @@ using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
-public enum ResizeModeOption
-{
-    Fixed,
-    KeepAspect,
-    Fit,
-    Fill,
-    Pad
-}
-
+/// <summary>
+/// Specifies the algorithm used for resampling during resize.
+/// </summary>
 public enum ResizeResampler
 {
     NearestNeighbor,
@@ -24,6 +18,22 @@ public enum ResizeResampler
     Lanczos3,
     Spline
 }
+
+/// <summary>
+/// Specifies the mode of resizing.
+/// </summary>
+public enum ResizeModeOption
+{
+    Fixed,
+    KeepAspect,
+    Fit,
+    Fill,
+    Pad
+}
+
+/// <summary>
+/// A block that resizes an image.
+/// </summary>
 public class ResizeBlock : IBlock
 {
     #region Fields
@@ -33,61 +43,44 @@ public class ResizeBlock : IBlock
 
     private bool _disposed;
 
-    // Configuration
-    private ResizeModeOption _resizeMode = ResizeModeOption.Fit;
-    private int? _targetWidth;
-    private int? _targetHeight;
+    private ResizeModeOption _resizeMode = ResizeModeOption.Fixed;
+    private int? _targetWidth = 100;
+    private int? _targetHeight = 100;
     private bool _preserveAspectRatio = true;
-    private ResizeResampler _resampler = ResizeResampler.Lanczos3;
-    private Color _backgroundColor = Color.Transparent;
+    private ResizeResampler _resampler = ResizeResampler.Bicubic;
+    private Color _backgroundColor = Color.Black;
 
     #endregion
 
-    #region IBlock basic properties
+    #region IBlock basic
 
+    /// <inheritdoc />
     public string Name => "Resize";
 
-    public string Title
-    {
-        get => "Resize";
-    }
+    /// <inheritdoc />
+    public string Title => "Resize";
 
-    public string Content
-    {
-        get
-        {
-            if (ResizeMode is ResizeModeOption.Fixed)
-                return $"Resize mode: {ResizeMode}\n" +
-                       $"Width: {TargetWidth}\n" +
-                       $"Height: {TargetHeight}\n" +
-                       $"Preserve aspect ratio: {PreserveAspectRatio}\n" +
-                       $"Resampler: {Resampler}";
-            else if (ResizeMode is ResizeModeOption.Pad)
-                return $"Resize mode: {ResizeMode}\n" +
-                       $"Width: {TargetWidth}\n" +
-                       $"Height: {TargetHeight}\n" +
-                       $"Resampler: {Resampler}\n" +
-                       $"Background color: {BackgroundColor}";
-            return $"Resize mode: {ResizeMode}\n" +
-                   $"Width: {TargetWidth}\n" +
-                   $"Height: {TargetHeight}\n" +
-                   $"Resampler: {Resampler}";
-        }
-    }
+    /// <inheritdoc />
+    public string Content => $"Size: {TargetWidth}x{TargetHeight}\nMode: {ResizeMode}";
 
     #endregion
 
     #region Sockets
 
+    /// <inheritdoc />
     public IReadOnlyList<Socket> Inputs => _inputs;
+    /// <inheritdoc />
     public IReadOnlyList<Socket> Outputs => _outputs;
 
     #endregion
 
-    #region Configuration properties
+    #region Configuration
 
+    /// <summary>
+    /// Gets or sets the resize mode.
+    /// </summary>
     [Category("Configuration")]
-    [Description("Resize mode controlling how the target size is interpreted")]
+    [Description("Resizing logic (Fixed, KeepAspect, Fit, Fill, Pad).")]
     public ResizeModeOption ResizeMode
     {
         get => _resizeMode;
@@ -101,6 +94,9 @@ public class ResizeBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Gets or sets the target width.
+    /// </summary>
     [Category("Configuration")]
     [Description("Target width in pixels. Interpretation depends on ResizeMode.")]
     public int? TargetWidth
@@ -119,6 +115,9 @@ public class ResizeBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Gets or sets the target height.
+    /// </summary>
     [Category("Configuration")]
     [Description("Target height in pixels. Interpretation depends on ResizeMode.")]
     public int? TargetHeight
@@ -137,6 +136,9 @@ public class ResizeBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Gets or sets whether to preserve aspect ratio in Fixed mode.
+    /// </summary>
     [Category("Configuration")]
     [Description("If true, preserves aspect ratio in Fixed mode.")]
     public bool PreserveAspectRatio
@@ -152,6 +154,9 @@ public class ResizeBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Gets or sets the resampling algorithm.
+    /// </summary>
     [Category("Configuration")]
     [Description("Resampling kernel used during resize.")]
     public ResizeResampler Resampler
@@ -167,6 +172,9 @@ public class ResizeBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Gets or sets the background color for Pad mode.
+    /// </summary>
     [Category("Configuration")]
     [Description("Background color used when ResizeMode = Pad.")]
     public Color BackgroundColor
@@ -186,8 +194,12 @@ public class ResizeBlock : IBlock
 
     #region INotifyPropertyChanged
 
+    /// <inheritdoc />
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>
+    /// Raises the PropertyChanged event.
+    /// </summary>
     protected void OnPropertyChanged(string propertyName)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
@@ -195,21 +207,25 @@ public class ResizeBlock : IBlock
 
     #region Execute
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         return Execute(inputs, CancellationToken.None);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value), cancellationToken);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         return Execute(inputs, CancellationToken.None);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         if (!inputs.TryGetValue(_inputs[0].Id, out var inItems))
@@ -384,6 +400,10 @@ public class ResizeBlock : IBlock
 
     #region IDisposable
 
+    /// <summary>
+    /// Releases unmanaged and - optionally - managed resources.
+    /// </summary>
+    /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
     protected virtual void Dispose(bool disposing)
     {
         if (!_disposed)
@@ -392,6 +412,7 @@ public class ResizeBlock : IBlock
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Dispose(true);

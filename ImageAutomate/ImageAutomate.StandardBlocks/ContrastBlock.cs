@@ -1,9 +1,12 @@
-﻿using ImageAutomate.Core;
+using ImageAutomate.Core;
 using SixLabors.ImageSharp.Processing;
 using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
+/// <summary>
+/// A block that adjusts the contrast of an image.
+/// </summary>
 public class ContrastBlock : IBlock
 {
     #region Fields
@@ -19,23 +22,32 @@ public class ContrastBlock : IBlock
 
     #region IBlock basic
 
+    /// <inheritdoc />
     public string Name => "Contrast";
 
+    /// <inheritdoc />
     public string Title => "Contrast";
 
+    /// <inheritdoc />
     public string Content => $"Contrast: {Contrast}";
 
     #endregion
 
     #region Sockets
 
+    /// <inheritdoc />
     public IReadOnlyList<Socket> Inputs => _inputs;
+    /// <inheritdoc />
     public IReadOnlyList<Socket> Outputs => _outputs;
 
     #endregion
 
     #region Configuration
 
+    /// <summary>
+    /// Gets or sets the contrast factor.
+    /// 0.0–3.0 range. 1.0 = no change, &lt; 1.0 = lower contrast, &gt; 1.0 = higher contrast.
+    /// </summary>
     [Category("Configuration")]
     [Description("Contrast factor (0.0–3.0). 1.0 = no change, <1.0 = lower contrast, >1.0 = higher contrast.")]
     public float Contrast
@@ -56,8 +68,12 @@ public class ContrastBlock : IBlock
 
     #region INotifyPropertyChanged
 
+    /// <inheritdoc />
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>
+    /// Raises the PropertyChanged event.
+    /// </summary>
     protected void OnPropertyChanged(string propertyName)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
@@ -65,24 +81,28 @@ public class ContrastBlock : IBlock
 
     #region Execute
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         return Execute(inputs, CancellationToken.None);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value), cancellationToken);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         return Execute(inputs, CancellationToken.None);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
@@ -105,6 +125,10 @@ public class ContrastBlock : IBlock
 
     #region IDisposable
 
+    /// <summary>
+    /// Releases unmanaged and - optionally - managed resources.
+    /// </summary>
+    /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
     protected virtual void Dispose(bool disposing)
     {
         if (!_disposed)
@@ -113,6 +137,7 @@ public class ContrastBlock : IBlock
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Dispose(true);

@@ -1,57 +1,54 @@
-# FR-CRP-001: Crop Image Block
+# Crop Block
 
 ## Description
-Block shall crop images to a specified rectangle or region using ImageSharp. Supports absolute pixel cropping, center-based cropping and anchor-based cropping.
+Block shall crop images to a specified region.
+Supports multiple cropping modes including explicit rectangle, centered cropping, and anchor-based cropping.
+
+---
 
 ## Configuration Parameters
 
-### CropMode
-Defines how the crop region is selected:
-- Rectangle
-- Center
-- Anchor
+### `CropMode`
+Specifies how the crop region is determined.
+- **Rectangle**: Uses explicit `X`, `Y` coordinates and `CropWidth`, `CropHeight`.
+- **Center**: Centers the crop region of size `CropWidth` x `CropHeight` within the image.
+- **Anchor**: Aligns the crop region of size `CropWidth` x `CropHeight` relative to an `AnchorPosition`.
 
-### X
-Left coordinate of crop origin (pixels). Used in Rectangle mode.
+### `X`, `Y`
+- Only used in **Rectangle** mode.
+- Top-left coordinates of the crop rectangle.
 
-### Y
-Top coordinate of crop origin (pixels). Used in Rectangle mode.
+### `CropWidth`, `CropHeight`
+- The dimensions of the resulting cropped image.
+- Must be positive integers.
 
-### Width
-Crop width in pixels. Required for all mode.
+### `AnchorPosition`
+- Only used in **Anchor** mode.
+- Positions the crop rectangle relative to the source image.
+- Options: `TopLeft`, `Top`, `TopRight`, `Left`, `Center`, `Right`, `BottomLeft`, `Bottom`, `BottomRight`.
 
-### Height
-Crop height in pixels. Required for all mode.
-
-### AnchorPosition
-Used when CropMode = Anchor. Supported values:
-- TopLeft
-- Top
-- TopRight
-- Left
-- Center
-- Right
-- BottomLeft
-- Bottom
-- BottomRight
+---
 
 ## Acceptance Criteria
-- Cropping respects selected mode.
-- Output dimensions reflect exact cropped region.
-- Coordinates validated to stay inside original image bounds.
-- Metadata preserved unless removed by downstream blocks.
+- Output image has dimensions `CropWidth` x `CropHeight`.
+- Crop region is correctly positioned according to `CropMode` and parameters.
+- Throws error if crop region exceeds source image bounds.
+
+---
 
 ## UI Behaviour
-- CropMode selectable via dropdown.
-- X, Y fields enabled only when CropMode = Rectangle.
-- AnchorPosition dropdown visible only when CropMode = Anchor.
+- **CropMode** dropdown selects the mode.
+- **X, Y** visible only when `CropMode` is `Rectangle`.
+- **AnchorPosition** visible only when `CropMode` is `Anchor`.
+- **CropWidth, CropHeight** always visible.
+
+---
 
 ## Operational Behaviour
-- Implemented via Image.Mutate(x => x.Crop(new Rectangle(...))).
-- Center mode computes crop region based on image center.
-- Anchor mode computes region based on anchor position and crop size.
-- Alpha, ICC profile, DPI preserved.
 
-## Technical Notes
-- GIF animations: Only first frame is cropped.
-- Cropping outside bounds raises error and must be prevalidated.
+### Bounds Checking
+- **Rectangle Mode**: Throws if `X + CropWidth > SourceWidth` or `Y + CropHeight > SourceHeight`.
+- **Center/Anchor Mode**: Throws if `CropWidth > SourceWidth` or `CropHeight > SourceHeight`.
+
+### Execution
+- Applies `Image.Mutate(x => x.Crop(rectangle))` using the calculated rectangle.

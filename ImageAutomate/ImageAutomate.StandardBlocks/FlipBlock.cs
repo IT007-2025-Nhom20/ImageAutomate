@@ -1,14 +1,21 @@
-﻿using ImageAutomate.Core;
+using ImageAutomate.Core;
 using SixLabors.ImageSharp.Processing;
 using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
+/// <summary>
+/// Specifies the direction to flip an image.
+/// </summary>
 public enum FlipModeOption
 {
     Horizontal,
     Vertical
 }
+
+/// <summary>
+/// A block that flips an image horizontally or vertically.
+/// </summary>
 public class FlipBlock : IBlock
 {
     #region Fields
@@ -23,23 +30,31 @@ public class FlipBlock : IBlock
 
     #region IBlock basic
 
+    /// <inheritdoc />
     public string Name => "Flip";
 
+    /// <inheritdoc />
     public string Title => "Flip";
 
+    /// <inheritdoc />
     public string Content => $"Flip direction: {FlipMode}";
 
     #endregion
 
     #region Sockets
 
+    /// <inheritdoc />
     public IReadOnlyList<Socket> Inputs => _inputs;
+    /// <inheritdoc />
     public IReadOnlyList<Socket> Outputs => _outputs;
 
     #endregion
 
     #region Configuration
 
+    /// <summary>
+    /// Gets or sets the flip direction.
+    /// </summary>
     [Category("Configuration")]
     [Description("Flip direction: Horizontal or Vertical.")]
     public FlipModeOption FlipMode
@@ -59,8 +74,12 @@ public class FlipBlock : IBlock
 
     #region INotifyPropertyChanged
 
+    /// <inheritdoc />
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>
+    /// Raises the PropertyChanged event.
+    /// </summary>
     protected void OnPropertyChanged(string propertyName)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
@@ -68,24 +87,28 @@ public class FlipBlock : IBlock
 
     #region Execute
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         return Execute(inputs, CancellationToken.None);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
         return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value), cancellationToken);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
         return Execute(inputs, CancellationToken.None);
     }
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
@@ -114,6 +137,10 @@ public class FlipBlock : IBlock
 
     #region IDisposable
 
+    /// <summary>
+    /// Releases unmanaged and - optionally - managed resources.
+    /// </summary>
+    /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
     protected virtual void Dispose(bool disposing)
     {
         if (!_disposed)
@@ -122,6 +149,7 @@ public class FlipBlock : IBlock
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Dispose(true);

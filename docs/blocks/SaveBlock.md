@@ -1,73 +1,33 @@
-# FR-SAV-001: Save Image Block
+# SaveBlock
+
+`SaveBlock` is a sink block that saves processed images to a specified directory on the file system. It acts as an endpoint for the pipeline.
 
 ## Description
-The Save Block outputs the processed image to disk. 
-Supports all ImageSharp encoders and handles directory validation and overwrite rules.
-
----
+This block takes incoming image work items and writes them to disk. It handles directory creation, file naming, and format selection based on file extensions.
 
 ## Configuration Parameters
 
-### OutputPath
-File path for saving the processed image.  
-Directory must exist unless CreateDirectory is true.
+### `OutputPath`
+*   **Type**: `string`
+*   **Description**: The directory path where images will be saved.
+*   **Required**: Yes
 
-### Overwrite
-Boolean.  
-- false = prevent overwrite if file exists  
-- true = overwrite existing file
+### `Overwrite`
+*   **Type**: `bool`
+*   **Description**: If true, overwrites existing files with the same name. If false, throws an error if the file exists.
+*   **Default**: `false`
 
-### CreateDirectory
-Boolean.  
-If true, missing folders in the OutputPath are created automatically.
+### `CreateDirectory`
+*   **Type**: `bool`
+*   **Description**: If true, automatically creates the `OutputPath` directory if it does not exist.
+*   **Default**: `true`
 
-### EncoderFormat
-Optional override to specify the encoder explicitly:  
-Bmp, Gif, Jpeg, Png, Pbm, Tiff, Tga, WebP, Qoi.  
-If omitted, format is inferred from the file extension.
+## Behavior
 
-### EncoderOptions
-Format-specific encoder settings (same structure as ConvertBlock):
-- JPEG: Quality
-- PNG: CompressionLevel
-- WEBP: Quality, Lossless
-- TIFF: Compression
-- BMP: BitsPerPixel
-- PBM: ColorType
-- GIF: UseDithering, ColorPaletteSize
-- TGA: Compress
-- QOI: IncludeAlpha
----
+*   **File Naming**: Uses the `FileName` metadata from the input `WorkItem`.
+*   **Format Selection**: Determines output format based on the file extension of the target path (derived from `FileName`). Fallback to PNG if undetermined.
+*   **Execution**: Saves each incoming image to the disk. Does not emit any output work items (Sink).
 
-## Acceptance Criteria
-- Output file must be written successfully.
-- Encoder used must match EncoderFormat or file extension.
-- Overwrite behaviour must follow Overwrite setting.
-- Must create directories automatically when CreateDirectory = true.
-- Metadata preserved unless removed earlier in the pipeline.
-
----
-
-## Operational Behaviour
-
-### Saving with automatic format detection
-```csharp
-image.Save(outputPath);
-```
-
-### Saving with explicit encoder
-```csharp
-image.Save(outputPath, new JpegEncoder { Quality = 90 });
-```
-
-### Directory handling
-```csharp
-Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
-```
-
----
-
-## Technical Notes
-- GIF saving is static-only; animation is not supported.
-- ICC profile preserved by default.
-- Alpha flattened when saving to non-alpha formats (JPEG, BMP).
+## Error Handling
+*   Throws `InvalidOperationException` if `OutputPath` is not set or `FileName` metadata is missing.
+*   Throws `IOException` if the file exists and `Overwrite` is false.

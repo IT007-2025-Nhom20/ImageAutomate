@@ -1,7 +1,7 @@
-# FR-CVT-001: Convert Image to Selected Format Block
+# Convert Block
 
 ## Description
-Block shall convert images between supported formats using ImageSharp.  
+Block shall convert images between supported formats using ImageSharp.
 Supports re-encoding, metadata preservation, alpha handling, and configurable encoder options.
 
 ---
@@ -13,29 +13,23 @@ Specifies desired output format. Supported values:
 - Bmp
 - Gif
 - Jpeg
-- Pbm
 - Png
 - Tiff
 - Tga
 - WebP
 - Qoi
+- (Pbm, Unknown are present in enum but may be unimplemented)
 
-### PreserveMetadata
-Boolean.  
-- true = retain EXIF, ICC profile, and general metadata  
-- false = output contains only pixel data
-
-### AlwaysReEncode
-Boolean.  
-Controls behavior when source format == TargetFormat:
-- false = passthrough unless encoder options change  
+### AlwaysEncode
+Boolean.
+- false = passthrough unless encoder options change or format changes
 - true = always re-encode
 
 ### EncodingOptions
 Format-specific encoder configuration:
-- JPEG: Quality  
-- PNG: CompressionLevel  
-- WEBP: Quality, Lossless  
+- JPEG: Quality
+- PNG: CompressionLevel
+- WEBP: Quality, Lossless
 - TIFF: Compression
 - BMP: BitsPerPixel
 - GIF: UseDithering, ColorPaletteSize
@@ -48,14 +42,14 @@ Displayed only for relevant TargetFormat.
 ## Acceptance Criteria
 - Produces a valid output file in TargetFormat.
 - Encoder parameters applied correctly.
-- Metadata preserved only when PreserveMetadata = true.
-- Passthrough occurs only when source and target formats match and AlwaysReEncode = false.
+- Metadata preserved only when applicable (logic inside Execute handles deep cloning/modification).
+- Passthrough occurs only when source and target formats match and AlwaysEncode = false.
 - Transparency preserved for formats with alpha support; flattened for non-alpha formats.
 
 ---
 
 ## UI Behaviour
-- TargetFormat dropdown displays: BMP, GIF, JPEG, PNG, TGA, TIFF, WEBP.
+- TargetFormat dropdown displays supported formats.
 - EncodingOptions shows only parameters relevant to selected TargetFormat.
 - JPEG  exposes Quality list.
 - PNG exposes CompressionLevel list.
@@ -65,6 +59,7 @@ Displayed only for relevant TargetFormat.
 - TIFF exposes Compression list.
 - TGA exposes Compress true/false.
 - QOI exposes IncludeAlpha true/false
+
 ---
 
 ## Operational Behaviour
@@ -79,37 +74,27 @@ var info = Image.Identify(stream);
 - Re-encode when:
   - TargetFormat differs from source format
   - EncodingOptions provided
-  - AlwaysReEncode = true
+  - AlwaysEncode = true
 - Passthrough allowed only when:
   - Formats match
   - No EncodingOptions set
-  - AlwaysReEncode = false
+  - AlwaysEncode = false
 
 ### Metadata
-When PreserveMetadata = true:
-```csharp
-output.Metadata = input.Metadata.DeepClone();
-```
+Metadata is passed via `WorkItem` metadata dictionary, setting "Format" and "EncodingOptions".
+The actual image conversion happens later (possibly in SaveBlock or during processing if forced).
+**Note**: The current `ConvertBlock` implementation updates metadata but returns a `WorkItem` with the *original* image if not explicitly re-encoded immediately?
+Wait, the code in `Execute` creates a new `WorkItem` with the *same* image but updated metadata. This suggests the actual pixel conversion might be deferred or handled by `SaveBlock` using the metadata instructions.
+The `Execute` method sets `Format` and `EncodingOptions` in metadata.
 
 ### Transparency
-- For non-alpha formats (JPEG, BMP), transparency is flattened to white.
+- For non-alpha formats (JPEG, BMP), transparency is flattened to white (handled by encoder).
 - Alpha preserved for PNG, TGA, TIFF, WebP, QOI.
-
-### DPI & Resolution
-DPI and resolution preserved from original image unless changed elsewhere.
 
 ---
 
 ## Technical Notes
 - ImageSharp supports all listed formats.
 - ICC profiles preserved unless explicitly removed.
-- Animated GIFs: only first frame processed.
+- Animated GIFs: only first frame processed (Image is single frame in WorkItem).
 - Large batch operations may require memory warnings and sequential processing.
-
----
-
-## Known Limitations
-- Lossy formats (JPEG, WEBP-lossy) degrade quality on re-encode.
-- Some metadata fields not supported by certain formats.
-- No animation support for GIF output (ImageSharp writes only static images).
-

@@ -1,82 +1,60 @@
-# FR-RSZ-001: Resize Image Block
+# Resize Block
 
 ## Description
-Block shall resize images to configurable dimensions using ImageSharp resampling operations. Supports absolute pixel sizing, proportional scaling, aspect-ratio constraints, and various resampling kernels.
+Block shall resize images to new dimensions.
+Supports various resize modes to handle aspect ratio preservation, cropping, and padding.
+
+---
 
 ## Configuration Parameters
 
-### ResizeMode
-Defines how the output size is computed. Supported values:
-- Fixed
-- KeepAspect
-- Fit
-- Fill
-- Pad
+### `ResizeMode`
+Specifies how the image is resized.
+- **Fixed**: Stretches the image to `TargetWidth` x `TargetHeight`. If `PreserveAspectRatio` is true, scales to fit within the box.
+- **KeepAspect**: Scales the image to fit within `TargetWidth` or `TargetHeight`, preserving aspect ratio.
+- **Fit**: Fits the image within the target box, preserving aspect ratio.
+- **Fill**: Fills the target box, preserving aspect ratio (cropping if necessary).
+- **Pad**: Fits the image within the target box and pads the remaining space with `BackgroundColor`.
 
-### Width
-Target pixel width. Interpreted based on ResizeMode. Optional when ResizeMode = KeepAspect.
+### `TargetWidth`, `TargetHeight`
+- The target dimensions in pixels.
+- Must be positive integers.
+- Can be nullable in some modes (e.g. KeepAspect can specify only one dimension).
 
-### Height
-Target pixel height. Interpreted based on ResizeMode. Optional when ResizeMode = KeepAspect.
+### `PreserveAspectRatio`
+- Used in **Fixed** mode to toggle between stretching and scaling.
 
-### PreserveAspectRatio
-Boolean indicating whether aspect ratio should be maintained. Only applicable to Fixed mode.
+### `Resampler`
+Specifies the algorithm used for resampling.
+- **NearestNeighbor**
+- **Bilinear**
+- **Bicubic**
+- **Lanczos2**
+- **Lanczos3**
+- **Spline**
 
-### Resampler
-Resampling kernel used for resizing. Supported values:
-- NearestNeighbor
-- Bilinear
-- Bicubic
-- Lanczos2
-- Lanczos3
-- Spline
+### `BackgroundColor`
+- The color used for padding in **Pad** mode.
 
-### BackgroundColor (Pad mode)
-Color used when padding is required to maintain aspect ratio.
+---
 
 ## Acceptance Criteria
-- Block shall resize the input image according to ResizeMode and dimensions.
-- Output image must retain valid pixel format.
-- Width and Height validate positive integers.
-- Aspect ratio preserved when required.
-- Padding applied only in Pad mode.
-- Alpha channel preserved for transparent formats.
+- Output image dimensions match expectation for the selected mode.
+- Image content is resampled using the selected algorithm.
+- Aspect ratio is preserved or ignored based on configuration.
+
+---
 
 ## UI Behaviour
-- ResizeMode selectable via dropdown.
-- Width/Height fields enabled based on mode.
-- BackgroundColor visible only when ResizeMode = Pad.
-- Resampler dropdown always visible.
+- **ResizeMode** dropdown selects the mode.
+- **TargetWidth, TargetHeight** inputs.
+- **PreserveAspectRatio** checkbox (visible for Fixed mode).
+- **Resampler** dropdown.
+- **BackgroundColor** picker (visible for Pad mode).
+
+---
 
 ## Operational Behaviour
 
-### Format Support
-- Accepts Bmp, Gif, Jpeg, Pbm, Png, Tiff, Tga, WebP, Qoi.
-- Source format auto-detected via Image.Identify().
-
-### Configuration Behaviour
-- Metadata preserved.
-- DPI preserved.
-- Padding applied only for Pad mode.
-
-### Resize Behaviour
-- Fixed: direct Width x Height.
-- KeepAspect: scale proportionally.
-- Fit: scale to fit bounding box.
-- Fill: crop overflow.
-- Pad: pad empty areas.
-
-## Technical Notes
-
-### Known Limitations
-- Only first frame of animated GIFs processed.
-- Large resize ratios may introduce ringing depending on resampler.
-
-### OOM Behaviour
-- Warn when batch size exceeds 80% memory.
-- Process large images individually.
-
-### Library Notes
-- Resampling uses ResizeOptions.
-- ICC profiles preserved.
-- Orientation respected unless stripped.
+### Execution
+- Applies `Image.Mutate(x => x.Resize(options))` using `SixLabors.ImageSharp`.
