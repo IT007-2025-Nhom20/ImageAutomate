@@ -19,6 +19,11 @@ namespace ImageAutomate.Views
         public EditorView()
         {
             InitializeComponent();
+
+            var graph = new PipelineGraph();
+            var workspace = new Workspace(graph);
+            graphRenderPanel1.Workspace = workspace;
+
             toolListBox.Items.AddRange([typeof(BrightnessBlock)]);
             toolListBox.Items.AddRange([typeof(ContrastBlock)]);
             toolListBox.Items.AddRange([typeof(ConvertBlock)]);
