@@ -46,6 +46,14 @@ namespace ImageAutomate.Views
             {
                 var type = (Type)e.Data.GetData(typeof(Type));
                 var block = (IBlock)Activator.CreateInstance(type);
+
+                Point clientPoint = graphRenderPanel1.PointToClient(new Point(e.X, e.Y));
+
+                block.X = clientPoint.X;
+                block.Y = clientPoint.Y;
+
+                graphRenderPanel1.Graph.AddBlock(block);
+
                 graphRenderPanel1.Invalidate();
             }
 
@@ -54,7 +62,10 @@ namespace ImageAutomate.Views
         private void button1_Click(object sender, EventArgs e)
         {
             var block = new BrightnessBlock();
-            graphRenderPanel1.AddPredecessor(block, new Socket("",""), new Socket("",""));
+            block.X = 100;
+            block.Y = 100;
+            graphRenderPanel1.Graph.AddBlock(block);
+            graphRenderPanel1.Invalidate();
         }
     }
 }
