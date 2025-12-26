@@ -20,6 +20,20 @@ namespace ImageAutomate.Views
         {
             InitializeComponent();
             toolListBox.Items.AddRange([typeof(BrightnessBlock)]);
+            toolListBox.Items.AddRange([typeof(ContrastBlock)]);
+            toolListBox.Items.AddRange([typeof(ConvertBlock)]);
+            toolListBox.Items.AddRange([typeof(CropBlock)]);
+            toolListBox.Items.AddRange([typeof(FlipBlock)]);
+            toolListBox.Items.AddRange([typeof(GaussianBlurBlock)]);
+            toolListBox.Items.AddRange([typeof(GrayscaleBlock)]);
+            toolListBox.Items.AddRange([typeof(HueBlock)]);
+            toolListBox.Items.AddRange([typeof(LoadBlock)]);
+            toolListBox.Items.AddRange([typeof(PixelateBlock)]);
+            toolListBox.Items.AddRange([typeof(ResizeBlock)]);
+            toolListBox.Items.AddRange([typeof(SaturationBlock)]);
+            toolListBox.Items.AddRange([typeof(SaveBlock)]);
+            toolListBox.Items.AddRange([typeof(SharpenBlock)]);
+            toolListBox.Items.AddRange([typeof(VignetteBlock)]);
         }
 
         private void toolListBox_MouseDown(object sender, MouseEventArgs e)
@@ -57,15 +71,6 @@ namespace ImageAutomate.Views
                 graphRenderPanel1.Invalidate();
             }
 
-        }
-
-        private void button1_Click(object sender, EventArgs e)
-        {
-            var block = new BrightnessBlock();
-            block.X = 100;
-            block.Y = 100;
-            graphRenderPanel1.Graph.AddBlock(block);
-            graphRenderPanel1.Invalidate();
         }
     }
 }
