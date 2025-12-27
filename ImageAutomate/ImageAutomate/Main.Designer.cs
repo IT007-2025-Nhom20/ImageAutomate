@@ -36,14 +36,14 @@
             editorView1.Dock = DockStyle.Fill;
             editorView1.Location = new Point(0, 0);
             editorView1.Name = "editorView1";
-            editorView1.Size = new Size(800, 450);
+            editorView1.Size = new Size(984, 561);
             editorView1.TabIndex = 0;
             // 
             // Main
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(800, 450);
+            ClientSize = new Size(984, 561);
             Controls.Add(editorView1);
             Name = "Main";
             Text = "Main";

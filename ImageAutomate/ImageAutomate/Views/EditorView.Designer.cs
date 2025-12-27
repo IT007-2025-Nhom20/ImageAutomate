@@ -28,258 +28,191 @@
         /// </summary>
         private void InitializeComponent()
         {
-            menuStrip1 = new MenuStrip();
-            fileToolStripMenuItem = new ToolStripMenuItem();
-            newToolStripMenuItem = new ToolStripMenuItem();
-            openToolStripMenuItem = new ToolStripMenuItem();
-            closeToolStripMenuItem = new ToolStripMenuItem();
-            saveToolStripMenuItem = new ToolStripMenuItem();
-            saveToolStripMenuItem1 = new ToolStripMenuItem();
-            splitContainer1 = new SplitContainer();
-            groupBox1 = new GroupBox();
-            toolListBox = new ListBox();
-            splitContainer2 = new SplitContainer();
-            splitContainer3 = new SplitContainer();
-            startButton = new Button();
-            deleteButton = new Button();
-            clearButton = new Button();
-            graphRenderPanel1 = new ImageAutomate.UI.GraphRenderPanel();
-            propertyGrid1 = new PropertyGrid();
-            menuStrip1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)splitContainer1).BeginInit();
-            splitContainer1.Panel1.SuspendLayout();
-            splitContainer1.Panel2.SuspendLayout();
-            splitContainer1.SuspendLayout();
-            groupBox1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)splitContainer2).BeginInit();
-            splitContainer2.Panel1.SuspendLayout();
-            splitContainer2.Panel2.SuspendLayout();
-            splitContainer2.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)splitContainer3).BeginInit();
-            splitContainer3.Panel1.SuspendLayout();
-            splitContainer3.Panel2.SuspendLayout();
-            splitContainer3.SuspendLayout();
+            Menubar = new MenuStrip();
+            FileMenu = new ToolStripMenuItem();
+            NewGraphMenuItem = new ToolStripMenuItem();
+            OpenMenuItem = new ToolStripMenuItem();
+            SaveMenuItem = new ToolStripMenuItem();
+            CloseMenuItem = new ToolStripMenuItem();
+            ExecuteMenuItem = new ToolStripMenuItem();
+            AboutMenuItem = new ToolStripMenuItem();
+            HelpMenuItem = new ToolStripMenuItem();
+            MainSplit = new SplitContainer();
+            Toolbox = new ListBox();
+            GraphPanelPropertyGridSplit = new SplitContainer();
+            GraphPanel = new ImageAutomate.UI.GraphRenderPanel();
+            BlockPropertyGrid = new PropertyGrid();
+            Menubar.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)MainSplit).BeginInit();
+            MainSplit.Panel1.SuspendLayout();
+            MainSplit.Panel2.SuspendLayout();
+            MainSplit.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)GraphPanelPropertyGridSplit).BeginInit();
+            GraphPanelPropertyGridSplit.Panel1.SuspendLayout();
+            GraphPanelPropertyGridSplit.Panel2.SuspendLayout();
+            GraphPanelPropertyGridSplit.SuspendLayout();
             SuspendLayout();
             // 
-            // menuStrip1
+            // Menubar
             // 
-            menuStrip1.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem });
-            menuStrip1.Location = new Point(0, 0);
-            menuStrip1.Name = "menuStrip1";
-            menuStrip1.Size = new Size(730, 24);
-            menuStrip1.TabIndex = 0;
-            menuStrip1.Text = "menuStrip1";
+            Menubar.Items.AddRange(new ToolStripItem[] { FileMenu, ExecuteMenuItem, AboutMenuItem, HelpMenuItem });
+            Menubar.Location = new Point(0, 0);
+            Menubar.Name = "Menubar";
+            Menubar.Size = new Size(800, 24);
+            Menubar.TabIndex = 0;
+            Menubar.Text = "menuStrip1";
             // 
-            // fileToolStripMenuItem
+            // FileMenu
             // 
-            fileToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { newToolStripMenuItem, openToolStripMenuItem, closeToolStripMenuItem, saveToolStripMenuItem, saveToolStripMenuItem1 });
-            fileToolStripMenuItem.Name = "fileToolStripMenuItem";
-            fileToolStripMenuItem.Size = new Size(37, 20);
-            fileToolStripMenuItem.Text = "File";
+            FileMenu.DropDownItems.AddRange(new ToolStripItem[] { NewGraphMenuItem, OpenMenuItem, SaveMenuItem, CloseMenuItem });
+            FileMenu.Name = "FileMenu";
+            FileMenu.Size = new Size(37, 20);
+            FileMenu.Text = "File";
             // 
-            // newToolStripMenuItem
+            // NewGraphMenuItem
             // 
-            newToolStripMenuItem.Name = "newToolStripMenuItem";
-            newToolStripMenuItem.Size = new Size(103, 22);
-            newToolStripMenuItem.Text = "New";
+            NewGraphMenuItem.Name = "NewGraphMenuItem";
+            NewGraphMenuItem.Size = new Size(103, 22);
+            NewGraphMenuItem.Text = "New";
             // 
-            // openToolStripMenuItem
+            // OpenMenuItem
             // 
-            openToolStripMenuItem.Name = "openToolStripMenuItem";
-            openToolStripMenuItem.Size = new Size(103, 22);
-            openToolStripMenuItem.Text = "Open";
+            OpenMenuItem.Name = "OpenMenuItem";
+            OpenMenuItem.Size = new Size(103, 22);
+            OpenMenuItem.Text = "Open";
             // 
-            // closeToolStripMenuItem
+            // SaveMenuItem
             // 
-            closeToolStripMenuItem.Name = "closeToolStripMenuItem";
-            closeToolStripMenuItem.Size = new Size(103, 22);
-            closeToolStripMenuItem.Text = "Save";
+            SaveMenuItem.Name = "SaveMenuItem";
+            SaveMenuItem.Size = new Size(103, 22);
+            SaveMenuItem.Text = "Save";
             // 
-            // saveToolStripMenuItem
+            // CloseMenuItem
             // 
-            saveToolStripMenuItem.Name = "saveToolStripMenuItem";
-            saveToolStripMenuItem.Size = new Size(103, 22);
-            saveToolStripMenuItem.Text = "Close";
+            CloseMenuItem.Name = "CloseMenuItem";
+            CloseMenuItem.Size = new Size(103, 22);
+            CloseMenuItem.Text = "Close";
             // 
-            // saveToolStripMenuItem1
+            // ExecuteMenuItem
             // 
-            saveToolStripMenuItem1.Name = "saveToolStripMenuItem1";
-            saveToolStripMenuItem1.Size = new Size(103, 22);
-            saveToolStripMenuItem1.Text = "Exit";
+            ExecuteMenuItem.Name = "ExecuteMenuItem";
+            ExecuteMenuItem.Size = new Size(59, 20);
+            ExecuteMenuItem.Text = "Execute";
+            ExecuteMenuItem.Click += OnExecuteMenuItemClick;
             // 
-            // splitContainer1
+            // AboutMenuItem
             // 
-            splitContainer1.Dock = DockStyle.Fill;
-            splitContainer1.Location = new Point(0, 24);
-            splitContainer1.Name = "splitContainer1";
+            AboutMenuItem.Name = "AboutMenuItem";
+            AboutMenuItem.Size = new Size(52, 20);
+            AboutMenuItem.Text = "About";
             // 
-            // splitContainer1.Panel1
+            // HelpMenuItem
             // 
-            splitContainer1.Panel1.Controls.Add(groupBox1);
+            HelpMenuItem.Name = "HelpMenuItem";
+            HelpMenuItem.Size = new Size(44, 20);
+            HelpMenuItem.Text = "Help";
             // 
-            // splitContainer1.Panel2
+            // MainSplit
             // 
-            splitContainer1.Panel2.Controls.Add(splitContainer2);
-            splitContainer1.Size = new Size(730, 576);
-            splitContainer1.SplitterDistance = 121;
-            splitContainer1.TabIndex = 1;
+            MainSplit.Dock = DockStyle.Fill;
+            MainSplit.Location = new Point(0, 24);
+            MainSplit.Name = "MainSplit";
             // 
-            // groupBox1
+            // MainSplit.Panel1
             // 
-            groupBox1.Controls.Add(toolListBox);
-            groupBox1.Dock = DockStyle.Fill;
-            groupBox1.Location = new Point(0, 0);
-            groupBox1.Name = "groupBox1";
-            groupBox1.Size = new Size(121, 576);
-            groupBox1.TabIndex = 0;
-            groupBox1.TabStop = false;
-            groupBox1.Text = "Tools";
+            MainSplit.Panel1.Controls.Add(Toolbox);
             // 
-            // toolListBox
+            // MainSplit.Panel2
             // 
-            toolListBox.Dock = DockStyle.Fill;
-            toolListBox.FormattingEnabled = true;
-            toolListBox.Location = new Point(3, 19);
-            toolListBox.Name = "toolListBox";
-            toolListBox.Size = new Size(115, 554);
-            toolListBox.TabIndex = 0;
-            toolListBox.MouseDown += toolListBox_MouseDown;
+            MainSplit.Panel2.Controls.Add(GraphPanelPropertyGridSplit);
+            MainSplit.Size = new Size(800, 576);
+            MainSplit.SplitterDistance = 132;
+            MainSplit.TabIndex = 1;
             // 
-            // splitContainer2
+            // Toolbox
             // 
-            splitContainer2.Dock = DockStyle.Fill;
-            splitContainer2.Location = new Point(0, 0);
-            splitContainer2.Name = "splitContainer2";
+            Toolbox.Dock = DockStyle.Fill;
+            Toolbox.FormattingEnabled = true;
+            Toolbox.Location = new Point(0, 0);
+            Toolbox.Name = "Toolbox";
+            Toolbox.Size = new Size(132, 576);
+            Toolbox.TabIndex = 1;
+            Toolbox.MouseDown += OnToolboxMouseDown;
             // 
-            // splitContainer2.Panel1
+            // GraphPanelPropertyGridSplit
             // 
-            splitContainer2.Panel1.Controls.Add(splitContainer3);
+            GraphPanelPropertyGridSplit.Dock = DockStyle.Fill;
+            GraphPanelPropertyGridSplit.Location = new Point(0, 0);
+            GraphPanelPropertyGridSplit.Name = "GraphPanelPropertyGridSplit";
             // 
-            // splitContainer2.Panel2
+            // GraphPanelPropertyGridSplit.Panel1
             // 
-            splitContainer2.Panel2.Controls.Add(propertyGrid1);
-            splitContainer2.Size = new Size(605, 576);
-            splitContainer2.SplitterDistance = 446;
-            splitContainer2.TabIndex = 0;
+            GraphPanelPropertyGridSplit.Panel1.Controls.Add(GraphPanel);
             // 
-            // splitContainer3
+            // GraphPanelPropertyGridSplit.Panel2
             // 
-            splitContainer3.Dock = DockStyle.Fill;
-            splitContainer3.IsSplitterFixed = true;
-            splitContainer3.Location = new Point(0, 0);
-            splitContainer3.Name = "splitContainer3";
-            splitContainer3.Orientation = Orientation.Horizontal;
+            GraphPanelPropertyGridSplit.Panel2.Controls.Add(BlockPropertyGrid);
+            GraphPanelPropertyGridSplit.Size = new Size(664, 576);
+            GraphPanelPropertyGridSplit.SplitterDistance = 489;
+            GraphPanelPropertyGridSplit.TabIndex = 0;
             // 
-            // splitContainer3.Panel1
+            // GraphPanel
             // 
-            splitContainer3.Panel1.Controls.Add(startButton);
-            splitContainer3.Panel1.Controls.Add(deleteButton);
-            splitContainer3.Panel1.Controls.Add(clearButton);
+            GraphPanel.AllowDrop = true;
+            GraphPanel.BackColor = Color.White;
+            GraphPanel.Dock = DockStyle.Fill;
+            GraphPanel.Location = new Point(0, 0);
+            GraphPanel.Name = "GraphPanel";
+            GraphPanel.Size = new Size(489, 576);
+            GraphPanel.TabIndex = 1;
+            GraphPanel.SelectedItemChanged += OnGraphSelectedItemChange;
             // 
-            // splitContainer3.Panel2
+            // BlockPropertyGrid
             // 
-            splitContainer3.Panel2.Controls.Add(graphRenderPanel1);
-            splitContainer3.Size = new Size(446, 576);
-            splitContainer3.SplitterDistance = 25;
-            splitContainer3.TabIndex = 0;
-            // 
-            // startButton
-            // 
-            startButton.Dock = DockStyle.Left;
-            startButton.Location = new Point(0, 0);
-            startButton.Name = "startButton";
-            startButton.Size = new Size(75, 25);
-            startButton.TabIndex = 2;
-            startButton.Text = "Start";
-            startButton.UseVisualStyleBackColor = true;
-            // 
-            // deleteButton
-            // 
-            deleteButton.Dock = DockStyle.Right;
-            deleteButton.Location = new Point(296, 0);
-            deleteButton.Name = "deleteButton";
-            deleteButton.Size = new Size(75, 25);
-            deleteButton.TabIndex = 1;
-            deleteButton.Text = "Delete";
-            deleteButton.UseVisualStyleBackColor = true;
-            deleteButton.Click += deleteButton_Click;
-            // 
-            // clearButton
-            // 
-            clearButton.Dock = DockStyle.Right;
-            clearButton.Location = new Point(371, 0);
-            clearButton.Name = "clearButton";
-            clearButton.Size = new Size(75, 25);
-            clearButton.TabIndex = 0;
-            clearButton.Text = "Clear";
-            clearButton.UseVisualStyleBackColor = true;
-            clearButton.Click += clearButton_Click;
-            // 
-            // graphRenderPanel1
-            // 
-            graphRenderPanel1.AllowDrop = true;
-            graphRenderPanel1.BackColor = Color.White;
-            graphRenderPanel1.Dock = DockStyle.Fill;
-            graphRenderPanel1.Location = new Point(0, 0);
-            graphRenderPanel1.Name = "graphRenderPanel1";
-            graphRenderPanel1.Size = new Size(446, 547);
-            graphRenderPanel1.TabIndex = 0;
-            graphRenderPanel1.MouseDown += graphRenderPanel1_MouseDown;
-            // 
-            // propertyGrid1
-            // 
-            propertyGrid1.BackColor = SystemColors.Control;
-            propertyGrid1.Dock = DockStyle.Fill;
-            propertyGrid1.Location = new Point(0, 0);
-            propertyGrid1.Name = "propertyGrid1";
-            propertyGrid1.Size = new Size(155, 576);
-            propertyGrid1.TabIndex = 0;
+            BlockPropertyGrid.BackColor = SystemColors.Control;
+            BlockPropertyGrid.Dock = DockStyle.Fill;
+            BlockPropertyGrid.Location = new Point(0, 0);
+            BlockPropertyGrid.Name = "BlockPropertyGrid";
+            BlockPropertyGrid.Size = new Size(171, 576);
+            BlockPropertyGrid.TabIndex = 0;
             // 
             // EditorView
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            Controls.Add(splitContainer1);
-            Controls.Add(menuStrip1);
+            Controls.Add(MainSplit);
+            Controls.Add(Menubar);
             Name = "EditorView";
-            Size = new Size(730, 600);
-            menuStrip1.ResumeLayout(false);
-            menuStrip1.PerformLayout();
-            splitContainer1.Panel1.ResumeLayout(false);
-            splitContainer1.Panel2.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)splitContainer1).EndInit();
-            splitContainer1.ResumeLayout(false);
-            groupBox1.ResumeLayout(false);
-            splitContainer2.Panel1.ResumeLayout(false);
-            splitContainer2.Panel2.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)splitContainer2).EndInit();
-            splitContainer2.ResumeLayout(false);
-            splitContainer3.Panel1.ResumeLayout(false);
-            splitContainer3.Panel2.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)splitContainer3).EndInit();
-            splitContainer3.ResumeLayout(false);
+            Size = new Size(800, 600);
+            Menubar.ResumeLayout(false);
+            Menubar.PerformLayout();
+            MainSplit.Panel1.ResumeLayout(false);
+            MainSplit.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)MainSplit).EndInit();
+            MainSplit.ResumeLayout(false);
+            GraphPanelPropertyGridSplit.Panel1.ResumeLayout(false);
+            GraphPanelPropertyGridSplit.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)GraphPanelPropertyGridSplit).EndInit();
+            GraphPanelPropertyGridSplit.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
 
         #endregion
 
-        private MenuStrip menuStrip1;
-        private SplitContainer splitContainer1;
-        private ToolStripMenuItem fileToolStripMenuItem;
-        private ToolStripMenuItem newToolStripMenuItem;
-        private ToolStripMenuItem openToolStripMenuItem;
-        private ToolStripMenuItem closeToolStripMenuItem;
-        private ToolStripMenuItem saveToolStripMenuItem;
-        private ToolStripMenuItem saveToolStripMenuItem1;
-        private GroupBox groupBox1;
-        private ListBox toolListBox;
-        private SplitContainer splitContainer2;
-        private PropertyGrid propertyGrid1;
-        private SplitContainer splitContainer3;
-        private Button deleteButton;
-        private Button clearButton;
-        private UI.GraphRenderPanel graphRenderPanel1;
-        private Button startButton;
+        private MenuStrip Menubar;
+        private SplitContainer MainSplit;
+        private ToolStripMenuItem FileMenu;
+        private ToolStripMenuItem NewGraphMenuItem;
+        private ToolStripMenuItem OpenMenuItem;
+        private ToolStripMenuItem SaveMenuItem;
+        private ToolStripMenuItem CloseMenuItem;
+        private SplitContainer GraphPanelPropertyGridSplit;
+        private PropertyGrid BlockPropertyGrid;
+        private UI.GraphRenderPanel GraphPanel;
+        private ListBox Toolbox;
+        private ToolStripMenuItem ExecuteMenuItem;
+        private ToolStripMenuItem AboutMenuItem;
+        private ToolStripMenuItem HelpMenuItem;
     }
 }
