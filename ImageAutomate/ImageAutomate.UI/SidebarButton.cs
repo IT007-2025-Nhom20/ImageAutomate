@@ -37,20 +37,8 @@ public class SidebarButton : Button, ISidebarItem
     /// </summary>
     public void SetSidebarState(bool isExpanded)
     {
-        if (isExpanded)
-        {
-            if (ExpandedText != null)
-                Text = ExpandedText;
-            if (ExpandedImage != null)
-                Image = ExpandedImage;
-        }
-        else
-        {
-            if (CollapsedText != null)
-                Text = CollapsedText;
-            if (CollapsedImage != null)
-                Image = CollapsedImage;
-        }
+        Text = isExpanded ? ExpandedText : CollapsedText;
+        Image = isExpanded ? ExpandedImage : CollapsedImage;
         Invalidate();
     }
 }

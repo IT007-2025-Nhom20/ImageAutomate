@@ -94,10 +94,5 @@ namespace ImageAutomate
         {
             SwitchToView(GetSettingsView());
         }
-
-        private void BtnWelcome_Click_1(object sender, EventArgs e)
-        {
-            SwitchToView(WelcomeView);
-        }
     }
 }
