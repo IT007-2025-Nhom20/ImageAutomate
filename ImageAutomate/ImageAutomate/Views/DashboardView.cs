@@ -70,12 +70,10 @@ namespace ImageAutomate
 
         private void SwitchToView(UserControl view)
         {
-            Controls.Remove(currentView);
-            Controls.Add(view);
+            ContentPanel.Controls.Remove(currentView);
             currentView = view;
-            view.Location = new Point(Sidebar.BaseWidth, 0);
-            view.Size = new Size(this.ClientSize.Width - Sidebar.BaseWidth, this.ClientSize.Height);
-            view.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            view.Dock = DockStyle.Fill;
+            ContentPanel.Controls.Add(view);
         }
 
         private void BtnWelcome_Click(object? sender, EventArgs e)

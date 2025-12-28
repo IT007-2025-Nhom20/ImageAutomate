@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics;
-
+using System.Runtime.InteropServices;
 using ImageAutomate.Core;
 using ImageAutomate.Execution;
 using ImageAutomate.Execution.Scheduling;
@@ -233,6 +233,52 @@ namespace ImageAutomate.Views.DashboardViews
                 UserConfiguration.NodeSpacing = (int)NodeSpacingValue.Value;
                 UserConfiguration.Save();
             };
+        }
+    }
+
+    /// <summary>
+    /// NumericUpDown that only processes MouseWheel when focused, ensuring parent panels can scroll.
+    /// </summary>
+    public class NoScrollNumericUpDown : NumericUpDown
+    {
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wp, IntPtr lp);
+
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == 0x020A && !this.Focused) // WM_MOUSEWHEEL = 0x020A
+            {
+                // Forward message to parent to allow container scrolling
+                if (this.Parent != null)
+                {
+                    SendMessage(this.Parent.Handle, m.Msg, m.WParam, m.LParam);
+                }
+                // Do NOT call base.WndProc, effectively ignoring the event for this control
+                return;
+            }
+            base.WndProc(ref m);
+        }
+    }
+
+    /// <summary>
+    /// ComboBox that only processes MouseWheel when focused, ensuring parent panels can scroll.
+    /// </summary>
+    public class NoScrollComboBox : ComboBox
+    {
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wp, IntPtr lp);
+
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == 0x020A && !this.Focused) // WM_MOUSEWHEEL = 0x020A
+            {
+                if (this.Parent != null)
+                {
+                    SendMessage(this.Parent.Handle, m.Msg, m.WParam, m.LParam);
+                }
+                return;
+            }
+            base.WndProc(ref m);
         }
     }
 }

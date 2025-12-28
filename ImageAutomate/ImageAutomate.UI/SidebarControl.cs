@@ -117,31 +117,47 @@ public class SidebarControl : Panel
 
     #endregion
 
-    #region Event 
+    #region Event Handlers
 
     protected override void OnHandleCreated(EventArgs e)
     {
         _baseWidth = Width;
-        //Debug.WriteLine($"SidebarControl initialized with BaseWidth: {_baseWidth}");
         base.OnHandleCreated(e);
     }
 
     /// <summary>
-    /// Handles mouse enter events to trigger expansion in AutoExpand mode.
+    /// Handles mouse enter events on the Sidebar panel itself.
     /// </summary>
     protected override void OnMouseEnter(EventArgs e)
     {
         base.OnMouseEnter(e);
+        AttemptExpand();
+    }
 
-        if (AutoExpand && !_isExpanded)
-        {
-            // Instant expand
-            Width = _baseWidth + ExpansionExtraWidth;
-            _isExpanded = true;
-            _hoverCheckTimer.Start();
-            StartAnimation();
-            PropagateState(true);
-        }
+    /// <summary>
+    /// Handles mouse enter events on child controls to simulate bubbling.
+    /// </summary>
+    private void OnChildMouseEnter(object? sender, EventArgs e)
+    {
+        AttemptExpand();
+    }
+
+    /// <summary>
+    /// Recursively wires MouseEnter events when controls are added.
+    /// </summary>
+    protected override void OnControlAdded(ControlEventArgs e)
+    {
+        base.OnControlAdded(e);
+        WireChildEvents(e.Control);
+    }
+
+    /// <summary>
+    /// Unwires events when controls are removed to prevent leaks.
+    /// </summary>
+    protected override void OnControlRemoved(ControlEventArgs e)
+    {
+        base.OnControlRemoved(e);
+        UnwireChildEvents(e.Control);
     }
 
     /// <summary>
@@ -150,6 +166,7 @@ public class SidebarControl : Panel
     private void OnHoverCheckTimerTick(object? sender, EventArgs e)
     {
         // Check if cursor is within the expanded geometric zone
+        // PointToClient works correctly even if cursor is over a child control
         bool isHovering = ClientRectangle.Contains(PointToClient(Cursor.Position));
 
         if (!isHovering && _isExpanded)
@@ -165,6 +182,54 @@ public class SidebarControl : Panel
     #endregion
 
     #region Private Methods
+
+    private void WireChildEvents(Control control)
+    {
+        // Prevent duplicate subscription if called multiple times
+        control.MouseEnter -= OnChildMouseEnter;
+        control.MouseEnter += OnChildMouseEnter;
+
+        // Recursively wire nested controls (e.g., Labels inside a Button UserControl)
+        if (control.HasChildren)
+        {
+            foreach (Control child in control.Controls)
+            {
+                WireChildEvents(child);
+            }
+            // Ensure dynamically added inner controls are also wired
+            control.ControlAdded += (s, args) => WireChildEvents(args.Control);
+            control.ControlRemoved += (s, args) => UnwireChildEvents(args.Control);
+        }
+    }
+
+    private void UnwireChildEvents(Control control)
+    {
+        control.MouseEnter -= OnChildMouseEnter;
+
+        if (control.HasChildren)
+        {
+            foreach (Control child in control.Controls)
+            {
+                UnwireChildEvents(child);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Shared logic to trigger expansion.
+    /// </summary>
+    private void AttemptExpand()
+    {
+        if (AutoExpand && !_isExpanded)
+        {
+            // Instant expand
+            Width = _baseWidth + ExpansionExtraWidth;
+            _isExpanded = true;
+            _hoverCheckTimer.Start();
+            StartAnimation();
+            PropagateState(true);
+        }
+    }
 
     /// <summary>
     /// Propagates the expansion state to all child ISidebarItem controls.
@@ -188,7 +253,6 @@ public class SidebarControl : Panel
     /// </summary>
     public void StartAnimation()
     {
-        //_baseWidth = Width;
         if (_overlayMode)
             BringToFront();
     }

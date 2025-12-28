@@ -34,6 +34,7 @@
             BtnWorkspaces = new ImageAutomate.UI.SidebarButton();
             BtnWelcome = new ImageAutomate.UI.SidebarButton();
             LabelMenu = new ImageAutomate.UI.SidebarLabel();
+            ContentPanel = new Panel();
             Sidebar.SuspendLayout();
             SuspendLayout();
             // 
@@ -113,11 +114,20 @@
             LabelMenu.Text = "Menu";
             LabelMenu.TextAlign = ContentAlignment.MiddleCenter;
             // 
+            // ContentPanel
+            // 
+            ContentPanel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            ContentPanel.Location = new Point(72, 0);
+            ContentPanel.Name = "ContentPanel";
+            ContentPanel.Size = new Size(728, 600);
+            ContentPanel.TabIndex = 2;
+            // 
             // DashboardView
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             Controls.Add(Sidebar);
+            Controls.Add(ContentPanel);
             Name = "DashboardView";
             Size = new Size(800, 600);
             Load += OnDashboardLoad;
@@ -133,5 +143,6 @@
         private UI.SidebarButton BtnWorkspaces;
         private UI.SidebarButton BtnWelcome;
         private UI.SidebarLabel LabelMenu;
+        private Panel ContentPanel;
     }
 }
