@@ -14,7 +14,7 @@ public class GaussianBlurBlock : IBlock
     private bool _disposed;
 
     private float _sigma = 1.0f;
-    private int? _radius = 3;
+    private int? _radius = null;
 
     // Layout fields
     private double _x;
