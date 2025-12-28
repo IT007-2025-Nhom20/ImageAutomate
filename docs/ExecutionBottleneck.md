@@ -45,32 +45,7 @@ Although `GraphExecutor.ExecuteAsync` is an async method, it performs synchronou
 
 ## Optimizations and Fixes
 
-### 1. Fix `Warehouse` Cloning Logic (Immediate Fix)
-Modify `Warehouse.cs` to transfer ownership of `WorkItem`s to the *last* consumer instead of cloning.
-
-```csharp
-// Warehouse.cs
-// ...
-// Atomically decrement consumer count
-int remainingConsumers = Interlocked.Decrement(ref _consumerCount);
-
-// ...
-
-var result = filtered.ToDictionary(
-    kvp => kvp.Key,
-    kvp => (IReadOnlyList<IBasicWorkItem>)kvp.Value
-        .Select(item => 
-        {
-            // If this is the last consumer, transfer ownership (no clone).
-            // Otherwise, clone to keep the original in the warehouse for others.
-            return remainingConsumers == 0 ? item : (IBasicWorkItem)item.Clone();
-        })
-        .ToList()
-);
-```
-*   **Benefit**: Eliminates 100% of cloning overhead for linear pipelines (1-to-1) and reduces fan-out cloning by 1/N.
-
-### 2. Parallelize `SaveBlock` Execution (Immediate Fix)
+### 1. Parallelize `SaveBlock` Execution (Immediate Fix)
 Modify `SaveBlock.Execute` to process the batch of images in parallel. Since saving is often I/O bound or encoding-heavy (CPU), `Parallel.ForEach` can utilize multiple threads.
 
 ```csharp
@@ -87,7 +62,7 @@ public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(...)
 }
 ```
 
-### 3. Asynchronous Initialization (Architecture Pattern)
+### 2. Asynchronous Initialization (Architecture Pattern)
 The `GraphExecutor` initialization phase should be wrapped in a Task or made truly async.
 
 *   **Fix**: In `EditorView` (or consumer code), ensure `ExecuteAsync` is called within `Task.Run` if it's known to do synchronous work, OR refactor `GraphExecutor` to yield execution.
