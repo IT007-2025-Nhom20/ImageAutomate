@@ -36,7 +36,12 @@ public class FlipBlock : IBlock
 
     #endregion
 
-    public FlipBlock(int width = 200, int height = 100)
+    public FlipBlock()
+        : this(200, 100)
+    {
+    }
+
+    public FlipBlock(int width, int height)
     {
         _width = width;
         _height = height;

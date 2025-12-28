@@ -32,7 +32,12 @@ public class BrightnessBlock : IBlock
 
     #endregion
 
-    public BrightnessBlock(int width = 200, int height = 100)
+    public BrightnessBlock()
+        : this(200, 100)
+    {
+    }
+
+    public BrightnessBlock(int width, int height)
     {
         _width = width;
         _height = height;

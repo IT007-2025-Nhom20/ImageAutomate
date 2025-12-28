@@ -33,7 +33,12 @@ public class SaveBlock : IBlock, IShipmentSink
 
     #endregion
 
-    public SaveBlock(int width = 200, int height = 100)
+    public SaveBlock()
+        : this(200, 100)
+    {
+    }
+
+    public SaveBlock(int width, int height)
     {
         _width = width;
         _height = height;

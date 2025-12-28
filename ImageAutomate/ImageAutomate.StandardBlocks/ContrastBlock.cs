@@ -27,7 +27,12 @@ public class ContrastBlock : IBlock
 
     #endregion
 
-    public ContrastBlock(int width = 200, int height = 100)
+    public ContrastBlock()
+        : this(200, 100)
+    {
+    }
+
+    public ContrastBlock(int width, int height)
     {
         _width = width;
         _height = height;

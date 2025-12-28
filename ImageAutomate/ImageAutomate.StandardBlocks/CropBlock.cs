@@ -61,7 +61,12 @@ public class CropBlock : IBlock
 
     #endregion
 
-    public CropBlock(int width = 200, int height = 100)
+    public CropBlock()
+        : this(200, 100)
+    {
+    }
+
+    public CropBlock(int width, int height)
     {
         _layoutWidth = width;
         _layoutHeight = height;

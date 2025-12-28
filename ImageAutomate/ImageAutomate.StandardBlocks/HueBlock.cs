@@ -24,7 +24,12 @@ public class HueBlock : IBlock
 
     #endregion
 
-    public HueBlock(int width = 200, int height = 100)
+    public HueBlock()
+        : this(200, 100)
+    {
+    }
+
+    public HueBlock(int width, int height)
     {
         _width = width;
         _height = height;

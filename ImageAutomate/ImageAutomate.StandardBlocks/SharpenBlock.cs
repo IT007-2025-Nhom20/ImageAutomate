@@ -23,7 +23,12 @@ public class SharpenBlock : IBlock
     private string _title = "Sharpen";
     #endregion
 
-    public SharpenBlock(int width = 200, int height = 100)
+    public SharpenBlock()
+        : this(200, 100)
+    {
+    }
+
+    public SharpenBlock(int width, int height)
     {
         _width = width;
         _height = height;

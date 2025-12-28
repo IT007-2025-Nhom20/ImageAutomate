@@ -24,7 +24,12 @@ public class SaturationBlock : IBlock
 
     #endregion
 
-    public SaturationBlock(int width = 200, int height = 100)
+    public SaturationBlock()
+        : this(200, 100)
+    {
+    }
+
+    public SaturationBlock(int width, int height)
     {
         _width = width;
         _height = height;

@@ -24,7 +24,12 @@ public class PixelateBlock: IBlock
 
     #endregion
 
-    public PixelateBlock(int width = 200, int height = 100)
+    public PixelateBlock()
+        : this(200, 100)
+    {
+    }
+
+    public PixelateBlock(int width, int height)
     {
         _width = width;
         _height = height;

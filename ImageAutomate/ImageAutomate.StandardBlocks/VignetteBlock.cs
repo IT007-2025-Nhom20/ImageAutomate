@@ -25,7 +25,12 @@ public class VignetteBlock : IBlock
 
     #endregion
 
-    public VignetteBlock(int width = 200, int height = 100)
+    public VignetteBlock()
+        : this(200, 100)
+    {
+    }
+
+    public VignetteBlock(int width, int height)
     {
         _width = width;
         _height = height;

@@ -579,7 +579,12 @@ public class ConvertBlock : IBlock
 
     #endregion
 
-    public ConvertBlock(int width = 200, int height = 100)
+    public ConvertBlock()
+        : this(200, 100)
+    {
+    }
+
+    public ConvertBlock(int width, int height)
     {
         _width = width;
         _height = height;

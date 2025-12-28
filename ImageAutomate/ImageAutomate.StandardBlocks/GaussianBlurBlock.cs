@@ -25,7 +25,12 @@ public class GaussianBlurBlock : IBlock
 
     #endregion
 
-    public GaussianBlurBlock(int width = 200, int height = 100)
+    public GaussianBlurBlock()
+        : this(200, 100)
+    {
+    }
+
+    public GaussianBlurBlock(int width, int height)
     {
         _width = width;
         _height = height;

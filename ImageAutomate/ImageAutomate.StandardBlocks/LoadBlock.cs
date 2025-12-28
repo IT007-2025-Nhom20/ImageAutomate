@@ -32,7 +32,12 @@ public class LoadBlock : IBlock, IShipmentSource
 
     #endregion
 
-    public LoadBlock(int width = 200, int height = 100)
+    public LoadBlock()
+        : this(200, 100)
+    {
+    }
+
+    public LoadBlock(int width, int height)
     {
         _width = width;
         _height = height;

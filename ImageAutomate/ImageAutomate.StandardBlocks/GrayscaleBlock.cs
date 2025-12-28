@@ -30,7 +30,12 @@ public class GrayscaleBlock : IBlock
 
     #endregion
 
-    public GrayscaleBlock(int width = 200, int height = 100)
+    public GrayscaleBlock()
+        : this(200, 100)
+    {
+    }
+
+    public GrayscaleBlock(int width, int height)
     {
         _width = width;
         _height = height;

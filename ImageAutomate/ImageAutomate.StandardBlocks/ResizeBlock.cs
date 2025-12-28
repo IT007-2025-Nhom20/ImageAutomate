@@ -59,7 +59,12 @@ public class ResizeBlock : IBlock
 
     #endregion
 
-    public ResizeBlock(int width = 200, int height = 100)
+    public ResizeBlock()
+        : this(200, 100)
+    {
+    }
+
+    public ResizeBlock(int width, int height)
     {
         _width = width;
         _height = height;
