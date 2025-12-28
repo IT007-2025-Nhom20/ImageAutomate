@@ -28,23 +28,23 @@
         /// </summary>
         private void InitializeComponent()
         {
-            editorView1 = new ImageAutomate.Views.EditorView();
+            dashboardView1 = new DashboardView();
             SuspendLayout();
             // 
-            // editorView1
+            // dashboardView1
             // 
-            editorView1.Dock = DockStyle.Fill;
-            editorView1.Location = new Point(0, 0);
-            editorView1.Name = "editorView1";
-            editorView1.Size = new Size(984, 561);
-            editorView1.TabIndex = 0;
+            dashboardView1.Dock = DockStyle.Fill;
+            dashboardView1.Location = new Point(0, 0);
+            dashboardView1.Name = "dashboardView1";
+            dashboardView1.Size = new Size(984, 561);
+            dashboardView1.TabIndex = 0;
             // 
             // Main
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(984, 561);
-            Controls.Add(editorView1);
+            Controls.Add(dashboardView1);
             Name = "Main";
             Text = "Main";
             ResumeLayout(false);
@@ -52,6 +52,6 @@
 
         #endregion
 
-        private Views.EditorView editorView1;
+        private DashboardView dashboardView1;
     }
 }
