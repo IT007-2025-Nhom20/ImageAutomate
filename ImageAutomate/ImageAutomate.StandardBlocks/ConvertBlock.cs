@@ -1,4 +1,4 @@
-﻿using ImageAutomate.Core;
+using ImageAutomate.Core;
 using ImageAutomate.Infrastructure;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Bmp;
@@ -563,6 +563,8 @@ public class ConvertBlock : IBlock
     #region Fields
     private static readonly ImageFormatRegistry _formatRegistry = new();
 
+    public static IReadOnlyList<string> SupportedFormats => _formatRegistry.GetRegisteredFormats().ToList();
+
     static ConvertBlock()
     {
         FormatRegistryInitializer.InitializeBuiltInFormats(_formatRegistry);
@@ -590,6 +592,7 @@ public class ConvertBlock : IBlock
     private double _y;
     private int _width = 200;
     private int _height = 100;
+    private string _title = "Convert";
 
     #endregion
 
@@ -608,10 +611,24 @@ public class ConvertBlock : IBlock
 
     #region Basic Properties
 
+    [Browsable(false)]
     public string Name => "Convert";
 
-    public string Title => "Convert";
+    [Category("Title")]
+    public string Title
+    {
+        get => _title;
+        set
+        {
+            if (_title != value)
+            {
+                _title = value;
+                OnPropertyChanged(nameof(Title));
+            }
+        }
+    }
 
+    [Browsable(false)]
     public string Content
     {
         get
@@ -648,6 +665,7 @@ public class ConvertBlock : IBlock
     #region Layout Properties
 
     /// <inheritdoc />
+    [Category("Layout")]
     public double X
     {
         get => _x;
@@ -662,6 +680,7 @@ public class ConvertBlock : IBlock
     }
 
     /// <inheritdoc />
+    [Category("Layout")]
     public double Y
     {
         get => _y;
@@ -676,6 +695,7 @@ public class ConvertBlock : IBlock
     }
 
     /// <inheritdoc />
+    [Category("Layout")]
     public int Width
     {
         get => _width;
@@ -690,6 +710,7 @@ public class ConvertBlock : IBlock
     }
 
     /// <inheritdoc />
+    [Category("Layout")]
     public int Height
     {
         get => _height;
@@ -707,7 +728,9 @@ public class ConvertBlock : IBlock
 
     #region Sockets
 
+    [Browsable(false)]
     public IReadOnlyList<Socket> Inputs => _inputs;
+    [Browsable(false)]
     public IReadOnlyList<Socket> Outputs => _outputs;
 
     #endregion
@@ -716,6 +739,7 @@ public class ConvertBlock : IBlock
 
     [Category("Configuration")]
     [Description("Target image format for conversion")]
+    [TypeConverter(typeof(ImageFormatConverter))]
     public string TargetFormat
     {
         get => _targetFormat;
@@ -1009,6 +1033,17 @@ public class ConvertBlock : IBlock
     }
 
     #endregion
+}
+
+public class ImageFormatConverter : StringConverter
+{
+    public override bool GetStandardValuesSupported(ITypeDescriptorContext? context) => true;
+    public override bool GetStandardValuesExclusive(ITypeDescriptorContext? context) => true;
+
+    public override StandardValuesCollection GetStandardValues(ITypeDescriptorContext? context)
+    {
+        return new StandardValuesCollection(ConvertBlock.SupportedFormats);
+    }
 }
 
 #region Encoding Classes
