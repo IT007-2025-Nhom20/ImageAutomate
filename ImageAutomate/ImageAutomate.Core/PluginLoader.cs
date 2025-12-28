@@ -24,10 +24,33 @@ public class PluginLoader
     private readonly ConcurrentDictionary<object, string> _instanceToPlugin = new();
     private readonly object _lock = new();
 
+    private readonly IRegistryAccessor _registryAccessor;
+    private readonly string _pluginsDirectory;
+
     /// <summary>
     /// Gets a read-only collection of all loaded plugins.
     /// </summary>
     public IReadOnlyCollection<PluginInfo> LoadedPlugins => _plugins.Values.Where(p => p.IsLoaded).ToList();
+
+    /// <summary>
+    /// Initializes a new instance of the PluginLoader.
+    /// </summary>
+    /// <param name="pluginsDirectory">Directory to search for plugins.</param>
+    /// <param name="registryAccessor">Accessor for system registries.</param>
+    public PluginLoader(string pluginsDirectory, IRegistryAccessor registryAccessor)
+    {
+        _pluginsDirectory = pluginsDirectory;
+        _registryAccessor = registryAccessor ?? throw new ArgumentNullException(nameof(registryAccessor));
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the PluginLoader with default registry access.
+    /// </summary>
+    /// <param name="pluginsDirectory">Directory to search for plugins.</param>
+    public PluginLoader(string pluginsDirectory)
+        : this(pluginsDirectory, new RegistryAccessorProxy())
+    {
+    }
 
     /// <summary>
     /// Loads a plugin from a single DLL file.
@@ -510,9 +533,9 @@ public class PluginLoader
 
             if (initializerType != null)
             {
-                var accessor = new RegistryAccessorProxy();
+                // Use the provided registry accessor
                 var initializer = (IPluginInitializer?)Activator.CreateInstance(initializerType);
-                initializer?.Initialize(accessor);
+                initializer?.Initialize(_registryAccessor);
             }
         }
         catch (Exception ex)
@@ -530,23 +553,6 @@ public class PluginLoader
     {
         public void RegisterScheduler(string name, Func<object> factory)
         {
-            // Use fully dynamic reflection to avoid compile-time dependency on Execution
-            var registryType = Type.GetType("ImageAutomate.Execution.Scheduling.SchedulerRegistry, ImageAutomate.Execution");
-            if (registryType == null)
-            {
-                Console.Error.WriteLine("Failed to locate SchedulerRegistry type.");
-                return;
-            }
-
-            var registryProperty = registryType.GetProperty("Registry",
-                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
-            var registry = registryProperty?.GetValue(null);
-            if (registry == null)
-            {
-                Console.Error.WriteLine("Failed to access SchedulerRegistry.Registry property.");
-                return;
-            }
-
             // Get IScheduler type dynamically
             var iSchedulerType = Type.GetType("ImageAutomate.Execution.Scheduling.IScheduler, ImageAutomate.Execution");
             if (iSchedulerType == null)
@@ -563,19 +569,54 @@ public class PluginLoader
                 return;
             }
 
-            var registerMethod = registry.GetType().GetMethod("RegisterScheduler",
-                new[] { typeof(string), funcSchedulerType });
-
-            if (registerMethod == null)
-            {
-                Console.Error.WriteLine("Failed to find RegisterScheduler method.");
-                return;
-            }
-
             // Create a wrapper delegate that adapts Func<object> to Func<IScheduler>
             var typedFactory = factory;
 
-            registerMethod.Invoke(registry, new object[] { name, typedFactory });
+            CallRegistryMethod(
+                "ImageAutomate.Execution.Scheduling.SchedulerRegistry, ImageAutomate.Execution",
+                "RegisterScheduler",
+                [typeof(string), funcSchedulerType],
+                [name, typedFactory]
+            );
+        }
+
+        public void RegisterImageFormat(string formatName, IImageFormatStrategy strategy)
+        {
+            CallRegistryMethod(
+                "ImageAutomate.Infrastructure.ImageFormatRegistry, ImageAutomate.Infrastructure",
+                "RegisterFormat",
+                [typeof(string), typeof(IImageFormatStrategy)],
+                [formatName, strategy]
+            );
+        }
+
+        private void CallRegistryMethod(string fullRegistryTypeName, string methodName, Type[] parameterTypes, object[] parameters)
+        {
+            var registryType = Type.GetType(fullRegistryTypeName);
+            if (registryType == null)
+            {
+                Console.Error.WriteLine($"Failed to locate {fullRegistryTypeName} type.");
+                return;
+            }
+
+            var registryProperty = registryType.GetProperty("Instance",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
+            var registry = registryProperty?.GetValue(null);
+            if (registry == null)
+            {
+                Console.Error.WriteLine($"Failed to access {registryType.Name}.Instance property.");
+                return;
+            }
+
+            var registerMethod = registry.GetType().GetMethod(methodName, parameterTypes);
+
+            if (registerMethod == null)
+            {
+                Console.Error.WriteLine($"Failed to find {methodName} method in {registryType.Name}.");
+                return;
+            }
+
+            registerMethod.Invoke(registry, parameters);
         }
     }
 }
