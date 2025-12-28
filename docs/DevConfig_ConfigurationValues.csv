@@ -1,0 +1,12 @@
+variable/prop name,which file is it,which file it should be in,exact line number,user config or dev config,expandable?,current value,recommended default,category
+None,ImageAutomate.Execution/GraphExecutor.cs,ImageAutomate.Execution/ExecutorConfiguration.cs,164,dev config,FALSE,20,20,Execution
+None,ImageAutomate.UI/GraphRenderPanel.cs,ImageAutomate.UI/GraphRenderPanel.cs,457,dev config,FALSE,1.1f,1.1,Editor
+None,ImageAutomate.UI/GraphRenderPanel.cs,ImageAutomate.UI/GraphRenderPanel.cs,464,dev config,FALSE,0.1f,0.1,Editor
+None,ImageAutomate.UI/GraphRenderPanel.cs,ImageAutomate.UI/GraphRenderPanel.cs,464,dev config,FALSE,5.0f,5.0,Editor
+None,ImageAutomate.UI/GraphRenderPanel.cs,ImageAutomate.UI/GraphRenderPanel.cs,520,dev config,FALSE,150,150,Editor
+None,ImageAutomate.UI/GraphRenderPanel.cs,ImageAutomate.UI/GraphRenderPanel.cs,521,dev config,FALSE,80,80,Editor
+None,ImageAutomate.UI/GraphRenderPanel.cs,ImageAutomate.UI/GraphRenderPanel.cs,496,dev config,FALSE,200,200,Editor
+None,ImageAutomate.UI/GraphRenderPanel.cs,ImageAutomate.UI/GraphRenderPanel.cs,497,dev config,FALSE,100,100,Editor
+_width,ImageAutomate.StandardBlocks/*Block.cs,*,-,dev config,FALSE,200,200,Defaults
+_height,ImageAutomate.StandardBlocks/*Block.cs,*,-,dev config,FALSE,100,100,Defaults
+Schema,ImageAutomate.Core/Workspace.cs,ImageAutomate.Core/Workspace.cs,114,dev config,FALSE,https://raw.githubusercontent.com/IT007-2025-Nhom20/ImageAutomate/project-restructure/docs/workspace-schema.json,https://raw.githubusercontent.com/IT007-2025-Nhom20/ImageAutomate/project-restructure/docs/workspace-schema.json,System
