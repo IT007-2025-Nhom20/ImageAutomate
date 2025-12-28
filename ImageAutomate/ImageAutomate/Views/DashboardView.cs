@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -17,7 +18,8 @@ namespace ImageAutomate
         private Lazy<WorkspaceView> workspaceView;
         private Lazy<PluginsView> pluginView;
         private Lazy<SettingsView> settingsView;
-        UserControl currentView;
+        private Lazy<WelcomeView> welcomeView;
+        UserControl? currentView;
 
         public DashboardView()
         {
@@ -26,29 +28,29 @@ namespace ImageAutomate
             workspaceView = new Lazy<WorkspaceView>(() => new WorkspaceView());
             pluginView = new Lazy<PluginsView>(() => new PluginsView());
             settingsView = new Lazy<SettingsView>(() => new SettingsView());
-            currentView = WelcomeView;
+            welcomeView = new Lazy<WelcomeView>(() => new WelcomeView());
         }
 
         private void Sidebar_NavigationRequested(object? sender, string viewName)
         {
             switch (viewName)
             {
-                case "Welcome": SwitchToWelcome(); break;
+                case "Welcome": SwitchToView(GetWelcomeView()); break;
                 case "Workspaces": SwitchToView(GetWorkspacesView()); break;
                 case "Plugins": SwitchToView(GetPluginView()); break;
                 case "Settings": SwitchToView(GetSettingsView()); break;
             }
         }
 
-        private void SwitchToWelcome()
-        {
-            SwitchToView(WelcomeView);
-        }
-
         private void SwitchToEditor()
         {
             //if (editorView == null) editorView = new EditorView();
             //SwitchToView(editorView);
+        }
+
+        private WelcomeView GetWelcomeView()
+        {
+            return welcomeView.Value;
         }
 
         private WorkspaceView GetWorkspacesView()
@@ -71,13 +73,14 @@ namespace ImageAutomate
             Controls.Remove(currentView);
             Controls.Add(view);
             currentView = view;
-            view.Location = new Point(Sidebar.Width, 0);
+            view.Location = new Point(Sidebar.BaseWidth, 0);
+            view.Size = new Size(this.ClientSize.Width - Sidebar.BaseWidth, this.ClientSize.Height);
             view.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
         }
 
         private void BtnWelcome_Click(object? sender, EventArgs e)
         {
-            SwitchToWelcome();
+            SwitchToView(GetWelcomeView());
         }
 
         private void BtnWorkspaces_Click(object? sender, EventArgs e)
@@ -93,6 +96,11 @@ namespace ImageAutomate
         private void BtnSettings_Click(object? sender, EventArgs e)
         {
             SwitchToView(GetSettingsView());
+        }
+
+        private void OnDashboardLoad(object sender, EventArgs e)
+        {
+            SwitchToView(GetWelcomeView());
         }
     }
 }

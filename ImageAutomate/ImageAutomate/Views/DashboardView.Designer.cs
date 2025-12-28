@@ -34,7 +34,6 @@
             BtnWorkspaces = new ImageAutomate.UI.SidebarButton();
             BtnWelcome = new ImageAutomate.UI.SidebarButton();
             LabelMenu = new ImageAutomate.UI.SidebarLabel();
-            WelcomeView = new ImageAutomate.Views.DashboardViews.WelcomeView();
             Sidebar.SuspendLayout();
             SuspendLayout();
             // 
@@ -114,23 +113,14 @@
             LabelMenu.Text = "Menu";
             LabelMenu.TextAlign = ContentAlignment.MiddleCenter;
             // 
-            // WelcomeView
-            // 
-            WelcomeView.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            WelcomeView.AutoScroll = true;
-            WelcomeView.Location = new Point(72, 0);
-            WelcomeView.Name = "WelcomeView";
-            WelcomeView.Size = new Size(728, 600);
-            WelcomeView.TabIndex = 2;
-            // 
             // DashboardView
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             Controls.Add(Sidebar);
-            Controls.Add(WelcomeView);
             Name = "DashboardView";
             Size = new Size(800, 600);
+            Load += OnDashboardLoad;
             Sidebar.ResumeLayout(false);
             ResumeLayout(false);
         }
@@ -143,6 +133,5 @@
         private UI.SidebarButton BtnWorkspaces;
         private UI.SidebarButton BtnWelcome;
         private UI.SidebarLabel LabelMenu;
-        private Views.DashboardViews.WelcomeView WelcomeView;
     }
 }

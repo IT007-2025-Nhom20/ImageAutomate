@@ -97,6 +97,9 @@ public class SidebarControl : Panel
         }
     }
 
+    [Browsable(false)]
+    public int BaseWidth => _baseWidth;
+
     #endregion
 
     #region Constructor
