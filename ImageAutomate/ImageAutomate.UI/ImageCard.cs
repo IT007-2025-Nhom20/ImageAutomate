@@ -15,17 +15,19 @@ public class ImageCard : Panel
     private Color _defaultBackColor;
     private Color _hoverColor = Color.LightGray;
 
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
     public ImageCard()
     {
         InitializeComponent();
         SetupEventPropagation();
-        
+
         // Default Styling
         this.Size = new Size(200, 250);
         this.BorderStyle = BorderStyle.FixedSingle;
         this.Cursor = Cursors.Hand;
         _defaultBackColor = this.BackColor;
     }
+#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
 
     #region Properties
 
@@ -113,7 +115,7 @@ public class ImageCard : Panel
         // Hierarchy Assembly
         _bottomPanel.Controls.Add(_lblTitle); // Add Title first to fill
         _bottomPanel.Controls.Add(_lblDate);  // Add Date docked right
-        
+
         this.Controls.Add(_pictureBox);       // Fill
         this.Controls.Add(_bottomPanel);      // Bottom
     }
@@ -124,20 +126,41 @@ public class ImageCard : Panel
 
     private void SetupEventPropagation()
     {
-        // Recursively hook events for all current controls
-        HookEvents(this);
+        // Iterate only children to prevent self-subscription recursion.
+        foreach (Control child in this.Controls)
+        {
+            HookEvents(child);
+        }
     }
 
     private void HookEvents(Control ctrl)
     {
-        ctrl.Click += (s, e) => this.InvokeOnClick(this, EventArgs.Empty);
-        ctrl.MouseEnter += (s, e) => OnMouseEnter(e);
-        ctrl.MouseLeave += (s, e) => OnMouseLeave(e);
+        // These handlers forward child events to the parent's logic.
+        // If 'ctrl' were 'this', it would create a stack overflow loop.
+        ctrl.Click += ChildOnClick;
+        ctrl.MouseEnter += ChildMouseEnter;
+        ctrl.MouseLeave += ChildMouseLeave;
 
+        // Recurse for nested controls (e.g., labels inside bottom panel)
         foreach (Control child in ctrl.Controls)
         {
             HookEvents(child);
         }
+    }
+
+    private void ChildOnClick(object? sender, EventArgs e)
+    {
+        this.InvokeOnClick(this, e);
+    }
+
+    private void ChildMouseEnter(object? sender, EventArgs e)
+    {
+        this.OnMouseEnter(e);
+    }
+
+    private void ChildMouseLeave(object? sender, EventArgs e)
+    {
+        this.OnMouseLeave(e);
     }
 
     // Hover Effects

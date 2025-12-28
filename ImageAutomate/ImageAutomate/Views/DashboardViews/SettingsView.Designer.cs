@@ -142,7 +142,6 @@
             ExecutionTable.ColumnCount = 2;
             ExecutionTable.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 200F));
             ExecutionTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            ExecutionTable.AutoScroll = false;
             ExecutionTable.Controls.Add(WatchdogTimeoutLabel, 0, 3);
             ExecutionTable.Controls.Add(WatchdogTimeoutValue, 1, 3);
             ExecutionTable.Controls.Add(MaxShipmentSizeLabel, 0, 4);
@@ -417,7 +416,6 @@
             EditorTable.ColumnCount = 2;
             EditorTable.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 200F));
             EditorTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            EditorTable.AutoScroll = false;
             EditorTable.Controls.Add(AutoSnapZoneWidthLabel, 0, 4);
             EditorTable.Controls.Add(AutoSnapZoneWidthValue, 1, 4);
             EditorTable.Controls.Add(RenderScaleLabel, 0, 3);
@@ -565,7 +563,6 @@
             ThemeTable.ColumnCount = 2;
             ThemeTable.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 200F));
             ThemeTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            ThemeTable.AutoScroll = false;
             ThemeTable.Controls.Add(NodeWidthLabel, 0, 10);
             ThemeTable.Controls.Add(NodeWidthValue, 1, 10);
             ThemeTable.Controls.Add(NodeBorderWidthLabel, 0, 9);
