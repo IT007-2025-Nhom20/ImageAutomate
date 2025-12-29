@@ -1,5 +1,7 @@
 namespace ImageAutomate.Execution;
 
+using System.Text.RegularExpressions;
+
 /// <summary>
 /// Compares strings using natural sort order (e.g., file1, file2, file10).
 /// Numbers within strings are compared numerically rather than lexicographically.
