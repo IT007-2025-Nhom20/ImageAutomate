@@ -178,7 +178,6 @@ namespace ImageAutomate.Views.DashboardViews
             else
             {
                 MessageBox.Show($"File not found:\n{filePath}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                // Optionally remove from list?
                 _workspaceService.RemoveWorkspace(filePath);
                 LoadRecentWorkspaces();
             }

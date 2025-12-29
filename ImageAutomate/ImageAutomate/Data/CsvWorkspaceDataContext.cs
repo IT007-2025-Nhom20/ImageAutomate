@@ -52,7 +52,6 @@ namespace ImageAutomate.Data
                 // Double-check after acquiring lock
                 _workspaces ??= new List<WorkspaceInfo>();
 
-                // Ensure directory exists
                 var directory = Path.GetDirectoryName(_csvFilePath);
                 if (!string.IsNullOrEmpty(directory))
                 {
@@ -167,7 +166,6 @@ namespace ImageAutomate.Data
         {
             try
             {
-                // Ensure directory exists before saving
                 var directory = Path.GetDirectoryName(_csvFilePath);
                 if (!string.IsNullOrEmpty(directory))
                 {
@@ -201,7 +199,7 @@ namespace ImageAutomate.Data
                 return;
 
             _disposed = true;
-            // No unmanaged resources to dispose, but good practice for the pattern
+            // No unmanaged resources to dispose
         }
     }
 }

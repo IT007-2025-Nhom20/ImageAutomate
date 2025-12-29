@@ -47,13 +47,12 @@ namespace ImageAutomate.Dialogs
             textBoxFilePath.Text = defaultFilePath ?? string.Empty;
             textBoxImagePath.Text = defaultImagePath ?? string.Empty;
 
-            // Configure based on mode
+            // Edit mode does not display save location and location browse button
             if (isEditMode)
             {
                 Text = "Edit Workspace";
                 buttonOK.Text = "Save";
 
-                // Hide file path row entirely in edit mode
                 labelFilePath.Visible = false;
                 panelFilePathSelection.Visible = false;
                 tableLayoutPanel.RowStyles[1].Height = 0;
@@ -145,7 +144,6 @@ namespace ImageAutomate.Dialogs
 
         private void OnOKClick(object? sender, EventArgs e)
         {
-            // Validate name
             if (string.IsNullOrWhiteSpace(textBoxName.Text))
             {
                 MessageBox.Show("Please enter a workspace name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -153,7 +151,6 @@ namespace ImageAutomate.Dialogs
                 return;
             }
 
-            // Validate file path for new workspaces
             if (!_isEditMode && string.IsNullOrWhiteSpace(textBoxFilePath.Text))
             {
                 MessageBox.Show("Please select a location to save the workspace.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -161,7 +158,6 @@ namespace ImageAutomate.Dialogs
                 return;
             }
 
-            // Validate image path if provided
             if (!string.IsNullOrWhiteSpace(textBoxImagePath.Text) && !File.Exists(textBoxImagePath.Text))
             {
                 MessageBox.Show("The selected image file does not exist.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
