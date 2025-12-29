@@ -4,6 +4,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace ImageAutomate.StandardBlocks;
 
@@ -263,6 +264,7 @@ public class SaveBlock : IBlock, IShipmentSink
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(inputs, nameof(inputs));
         if (!inputs.TryGetValue(_inputs[0].Id, out var inItems))
             throw new ArgumentException($"Input items not found for the expected input socket {_inputs[0].Id}.", nameof(inputs));
 
@@ -375,7 +377,7 @@ public class SaveBlock : IBlock, IShipmentSink
     /// <exception cref="InvalidOperationException">Thrown when format is not registered.</exception>
     private IImageEncoder CreateEncoder(string formatName, object encodingOptions)
     {
-        var strategy = ImageFormatRegistry.Instance.GetFormat(formatName.ToUpper());
+        var strategy = ImageFormatRegistry.Instance.GetFormat(formatName.ToUpper(CultureInfo.InvariantCulture));
         if (strategy == null)
         {
             Debug.WriteLine("Formats registered:");
