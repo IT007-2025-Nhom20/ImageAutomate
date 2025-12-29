@@ -88,7 +88,7 @@ public class Workspace
     public Workspace(PipelineGraph graph, string name, Dictionary<string, object?> metadata)
     {
         Name = name ?? throw new ArgumentNullException(nameof(name));
-        Graph = new PipelineGraph();
+        Graph = graph ?? throw new ArgumentNullException(nameof(graph));
         Metadata = metadata;
     }
 

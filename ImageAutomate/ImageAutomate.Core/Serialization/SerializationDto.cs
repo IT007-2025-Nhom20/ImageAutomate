@@ -4,6 +4,7 @@
  * Data Transfer Objects for serializing PipelineGraph and related types.
  */
 
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 
 namespace ImageAutomate.Core.Serialization;
@@ -38,25 +39,25 @@ public class SocketDto
 /// DTO for serializing IBlock data.
 /// Layout properties (X, Y, Width, Height) are serialized as regular properties.
 /// </summary>
+[SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "DTO requires setters for JSON deserialization")]
 public class BlockDto
 {
     [JsonPropertyName("blockType")]
-    public string BlockType { get; set; }
+    public string BlockType { get; set; } = string.Empty;
 
     [JsonPropertyName("assemblyQualifiedName")]
-    public string AssemblyQualifiedName { get; set; }
+    public string AssemblyQualifiedName { get; set; } = string.Empty;
 
     [JsonPropertyName("properties")]
-    public Dictionary<string, object?> Properties { get; }
+    public Dictionary<string, object?> Properties { get; set; } = [];
 
     [JsonPropertyName("inputs")]
-    public IReadOnlyList<SocketDto> Inputs { get; }
+    public IReadOnlyList<SocketDto> Inputs { get; set; } = [];
 
     [JsonPropertyName("outputs")]
-    public IReadOnlyList<SocketDto> Outputs { get; }
+    public IReadOnlyList<SocketDto> Outputs { get; set; } = [];
 
     public BlockDto()
-        : this(string.Empty, string.Empty, [], [], [])
     {
     }
 
@@ -94,13 +95,18 @@ public class ConnectionDto
 public class PipelineGraphDto
 {
     [JsonPropertyName("blocks")]
-    public IReadOnlyList<BlockDto> Blocks { get; }
+    public IReadOnlyList<BlockDto> Blocks { get; set; }
 
     [JsonPropertyName("connections")]
-    public IReadOnlyList<ConnectionDto> Connections { get; }
+    public IReadOnlyList<ConnectionDto> Connections { get; set; }
 
     [JsonPropertyName("centerBlockIndex")]
     public int? CenterBlockIndex { get; set; }
+
+    public PipelineGraphDto()
+        : this([], [], null)
+    {
+    }
 
     public PipelineGraphDto(IReadOnlyList<BlockDto> blocks, IReadOnlyList<ConnectionDto> connections, int? centerBlockIndex)
     {
@@ -113,6 +119,7 @@ public class PipelineGraphDto
 /// <summary>
 /// DTO for serializing a complete Workspace.
 /// </summary>
+[SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "DTO requires setters for JSON deserialization")]
 public class WorkspaceDto
 {
     [JsonPropertyName("$schema")]
@@ -137,7 +144,11 @@ public class WorkspaceDto
     public double PanY { get; set; } = 0.0;
 
     [JsonPropertyName("metadata")]
-    public Dictionary<string, object?> Metadata { get; } = [];
+    public Dictionary<string, object?> Metadata { get; set; } = [];
+
+    public WorkspaceDto()
+    {
+    }
 
     public WorkspaceDto(Uri? schema, string version, string name, PipelineGraphDto? graph, double zoom, double panX, double panY, Dictionary<string, object?> metadata)
     {
