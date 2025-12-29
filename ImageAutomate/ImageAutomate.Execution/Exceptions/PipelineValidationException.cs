@@ -8,8 +8,4 @@ public class PipelineValidationException : Exception
     public PipelineValidationException(string message) : base(message) { }
     public PipelineValidationException(string message, Exception innerException)
         : base(message, innerException) { }
-
-    public PipelineValidationException()
-    {
-    }
 }

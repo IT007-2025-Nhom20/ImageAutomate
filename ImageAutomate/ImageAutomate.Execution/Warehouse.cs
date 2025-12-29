@@ -38,7 +38,6 @@ public sealed class Warehouse
     /// <param name="outputs">Block execution outputs mapped by socket.</param>
     public void Import(IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> outputs)
     {
-        ArgumentNullException.ThrowIfNull(outputs, nameof(outputs));
         lock (_lock)
         {
             if (_isImported)

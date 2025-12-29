@@ -8,8 +8,4 @@ public class PipelineCancelledException : Exception
     public PipelineCancelledException(string message) : base(message) { }
     public PipelineCancelledException(string message, Exception innerException)
         : base(message, innerException) { }
-
-    public PipelineCancelledException()
-    {
-    }
 }
