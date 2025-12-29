@@ -4,6 +4,8 @@
  * Graph datastructure for managing Block nodes and their connections.
  */
 
+using ImageAutomate.Core.Serialization;
+
 namespace ImageAutomate.Core;
 
 /// <summary>
@@ -24,106 +26,124 @@ public record Connection(
 /// </remarks>
 public class PipelineGraph
 {
-    private static System.Text.Json.JsonSerializerOptions _serializerOptions = new()
+    private static readonly System.Text.Json.JsonSerializerOptions _serializerOptions = new()
     {
         IncludeFields = true,
         WriteIndented = true,
     };
+
     #region Private Fields
-    private IBlock? _center;
-    private readonly List<IBlock> _blocks = [];
-    private readonly List<Connection> _connections = [];
+    private readonly List<IBlock> _nodes = []; // nodes maintain layer hierarchy
+    private readonly List<Connection> _edges = [];
     #endregion
+    private IBlock? SelectedBlock
+    {
+        get => SelectedItem as IBlock;
+        set => SelectedItem = value;
+    }
 
     #region Properties
-    public IBlock? Center
-    {
-        get => _center;
-        set
-        {
-            if (value != null && !_blocks.Contains(value))
-                throw new InvalidOperationException("Center block must be part of the graph.");
-            _center = value;
-            GraphChanged?.Invoke(this, EventArgs.Empty);
-        }
-    }
-    public IReadOnlyList<IBlock> Blocks => _blocks;
-    public IReadOnlyList<Connection> Connections => _connections;
+    public object? SelectedItem { get; set; }
+    public IReadOnlyList<IBlock> Nodes => _nodes;
+    public IReadOnlyList<Connection> Edges => _edges;
     /// <summary>
     /// Occurs when the graph structure changes (nodes/edges added or removed).
     /// </summary>
-    public event EventHandler? GraphChanged;
+    public event Action<IBlock>? OnNodeRemoved;
     #endregion
 
     #region Public API
+
+    /// <summary>
+    /// Adds a block to the graph.
+    /// </summary>
     public void AddBlock(IBlock block)
     {
-        if (!_blocks.Contains(block))
+        if (!_nodes.Contains(block))
         {
-            _blocks.Add(block);
-            GraphChanged?.Invoke(this, EventArgs.Empty);
+            _nodes.Add(block);
         }
     }
 
     /// <summary>
     /// Removes a block and all its associated connections from the graph.
     /// </summary>
-    public void RemoveBlock(IBlock block)
+    public void RemoveNode(IBlock block)
     {
-        if (_blocks.Remove(block))
+        if (_nodes.Contains(block))
         {
-            // Remove all connections touching this block
-            _connections.RemoveAll(c => c.Source == block || c.Target == block);
+            // Remove edges connected to this block
+            _edges.RemoveAll(e => e.Source == block || e.Target == block);
 
-            if (Center == block)
-                Center = null;
-            GraphChanged?.Invoke(this, EventArgs.Empty);
+            _nodes.Remove(block);
+
+            if (SelectedItem == block) SelectedItem = null;
+            // Also need to check if SelectedItem was an edge connected to this block
+            if (SelectedItem is Connection edge && (edge.Source == block || edge.Target == block))
+            {
+                SelectedItem = null;
+            }
+
+            OnNodeRemoved?.Invoke(block);
         }
     }
 
     /// <summary>
     /// Connects two blocks via specific sockets.
     /// </summary>
-    public void Connect(IBlock source, Socket sourceSocket, IBlock target, Socket targetSocket)
+    public void AddEdge(IBlock source, Socket sourceSocket, IBlock target, Socket targetSocket)
     {
-        if (!Blocks.Contains(source))
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(sourceSocket);
+        ArgumentNullException.ThrowIfNull(targetSocket);
+        if (!Nodes.Contains(source))
             throw new ArgumentException($"Source block '{source.Title}' not found in graph");
-        if (!Blocks.Contains(target))
+        if (!Nodes.Contains(target))
             throw new ArgumentException($"Target block '{target.Title}' not found in graph");
         if (source.Outputs.All(s => s != sourceSocket))
             throw new ArgumentException($"Source socket '{sourceSocket.Id}' not found on {source.Title}");
         if (target.Inputs.All(s => s != targetSocket))
             throw new ArgumentException($"Target socket '{targetSocket.Id}' not found on {target.Title}");
 
-        // Remove existing connection to target socket to overwrite it with new connection
-        _connections.RemoveAll(c => c.Target == target && c.TargetSocket == targetSocket);
-
-        // Add the connection
-        _connections.Add(new Connection(source, sourceSocket, target, targetSocket));
-
-        GraphChanged?.Invoke(this, EventArgs.Empty);
+        _edges.Add(new Connection(source, sourceSocket, target, targetSocket));
     }
 
     /// <summary>
-    /// Connects two blocks via Socket IDs.
+    /// Connects two blocks via socket IDs.
     /// </summary>
-    public void Connect(IBlock source, string sourceSocketId, IBlock target, string targetSocketId)
+    /// <exception cref="ArgumentException">when socket ID not found on their respective block</exception>
+    public void AddEdge(IBlock source, string sourceSocketId, IBlock target, string targetSocketId)
     {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(target);
         var srcSocket = source.Outputs.FirstOrDefault(s => s.Id == sourceSocketId)
             ?? throw new ArgumentException($"Socket ID '{sourceSocketId}' not found on source '{source.Title}'");
         var tgtSocket = target.Inputs.FirstOrDefault(s => s.Id == targetSocketId)
             ?? throw new ArgumentException($"Socket ID '{targetSocketId}' not found on target '{target.Title}'");
 
-        Connect(source, srcSocket, target, tgtSocket);
+        AddEdge(source, srcSocket, target, tgtSocket);
     }
 
     /// <summary>
     /// Removes the specified connection.
     /// </summary>
-    public void Disconnect(Connection connection)
+    public void RemoveEdge(Connection edge)
     {
-        if (_connections.Remove(connection))
-            GraphChanged?.Invoke(this, EventArgs.Empty);
+        if (_edges.Remove(edge))
+        {
+            if (SelectedItem is Connection conn && conn == edge)
+                SelectedItem = null;
+        }
+    }
+
+    /// <summary>
+    /// Moves the specified block to the top layer (end of the list).
+    /// </summary>
+    public void BringToTop(IBlock block)
+    {
+        if (_nodes.Remove(block))
+            _nodes.Add(block);
     }
 
     /// <summary>
@@ -131,24 +151,121 @@ public class PipelineGraph
     /// </summary>
     public void Clear()
     {
-        _connections.Clear();
-        _blocks.Clear();
-        Center = null;
-        GraphChanged?.Invoke(this, EventArgs.Empty);
+        _edges.Clear();
+        _nodes.Clear();
+        SelectedItem = null;
     }
     #endregion
 
     #region Serialization
+    /// <summary>
+    /// Serializes the PipelineGraph to JSON string.
+    /// </summary>
     public string ToJson()
     {
-        throw new NotImplementedException("PipelineGraph serialization is not implemented yet.");
-        //return System.Text.Json.JsonSerializer.Serialize(this, _serializerOptions);
+        var dto = ToDto();
+        return System.Text.Json.JsonSerializer.Serialize(dto, _serializerOptions);
     }
+
+    /// <summary>
+    /// Deserializes a PipelineGraph from JSON string.
+    /// </summary>
     public static PipelineGraph FromJson(string json)
     {
-        throw new NotImplementedException("PipelineGraph deserialization is not implemented yet.");
-        //return System.Text.Json.JsonSerializer.Deserialize<PipelineGraph>(json, _serializerOptions)
-        //    ?? throw new InvalidOperationException("Failed to deserialize PipelineGraph from JSON.");
+        var dto = System.Text.Json.JsonSerializer.Deserialize<PipelineGraphDto>(json, _serializerOptions);
+        if (dto == null)
+            throw new InvalidOperationException("Failed to deserialize PipelineGraph from JSON.");
+        return FromDto(dto);
+    }
+
+    /// <summary>
+    /// Converts the PipelineGraph to a DTO for serialization.
+    /// Layout is stored directly in each block's properties.
+    /// </summary>
+    internal PipelineGraphDto ToDto()
+    {
+        List<BlockDto> blocks = [];
+        List<ConnectionDto> connections = [];
+        int? centerBlockIndex = null;
+
+        // Serialize blocks (layout is now part of block properties)
+        foreach (var block in _nodes)
+        {
+            blocks.Add(BlockSerializer.Serialize(block));
+        }
+
+        // Serialize connections (using block indices)
+        foreach (var connection in _edges)
+        {
+            var sourceIndex = _nodes.IndexOf(connection.Source);
+            var targetIndex = _nodes.IndexOf(connection.Target);
+
+            if (sourceIndex < 0 || targetIndex < 0)
+                continue;
+
+            connections.Add(new ConnectionDto
+            {
+                SourceBlockIndex = sourceIndex,
+                SourceSocketId = connection.SourceSocket.Id,
+                TargetBlockIndex = targetIndex,
+                TargetSocketId = connection.TargetSocket.Id
+            });
+        }
+
+        // Serialize selected block
+        if (SelectedBlock != null)
+        {
+            centerBlockIndex = _nodes.IndexOf(SelectedBlock);
+        }
+
+        return new PipelineGraphDto(blocks, connections, centerBlockIndex);
+    }
+
+    /// <summary>
+    /// Creates a PipelineGraph from a DTO.
+    /// </summary>
+    internal static PipelineGraph FromDto(PipelineGraphDto dto)
+    {
+        var graph = new PipelineGraph();
+
+        // Deserialize blocks (layout is restored directly into block properties)
+        var blocks = new List<IBlock>();
+        foreach (var blockDto in dto.Blocks)
+        {
+            var block = BlockSerializer.Deserialize(blockDto);
+            blocks.Add(block);
+            graph.AddBlock(block);
+        }
+
+        // Deserialize connections
+        foreach (var connDto in dto.Connections)
+        {
+            if (connDto.SourceBlockIndex < 0 || connDto.SourceBlockIndex >= blocks.Count)
+                continue;
+            if (connDto.TargetBlockIndex < 0 || connDto.TargetBlockIndex >= blocks.Count)
+                continue;
+
+            var sourceBlock = blocks[connDto.SourceBlockIndex];
+            var targetBlock = blocks[connDto.TargetBlockIndex];
+
+            var sourceSocket = sourceBlock.Outputs.FirstOrDefault(s => s.Id == connDto.SourceSocketId);
+            var targetSocket = targetBlock.Inputs.FirstOrDefault(s => s.Id == connDto.TargetSocketId);
+
+            if (sourceSocket != null && targetSocket != null)
+            {
+                graph.AddEdge(sourceBlock, sourceSocket, targetBlock, targetSocket);
+            }
+        }
+
+        // Restore selected block
+        if (dto.CenterBlockIndex.HasValue &&
+            dto.CenterBlockIndex.Value >= 0 &&
+            dto.CenterBlockIndex.Value < blocks.Count)
+        {
+            graph.SelectedItem = blocks[dto.CenterBlockIndex.Value];
+        }
+
+        return graph;
     }
     #endregion
 }

@@ -1,6 +1,8 @@
-﻿using ImageAutomate.Core;
-using SixLabors.ImageSharp.Processing;
 using System.ComponentModel;
+
+using ImageAutomate.Core;
+
+using SixLabors.ImageSharp.Processing;
 
 namespace ImageAutomate.StandardBlocks;
 
@@ -13,49 +15,109 @@ public class SaturationBlock : IBlock
 
     private bool _disposed;
 
-    private int _nodeWidth = 200;
-    private int _nodeHeight = 100;
-
     private float _saturation = 1.0f;
+
+    // Layout fields
+    private double _x;
+    private double _y;
+    private int _width;
+    private int _height;
+    private string _title = "Saturation";
+
     #endregion
+
+    public SaturationBlock()
+        : this(200, 100)
+    {
+    }
+
+    public SaturationBlock(int width, int height)
+    {
+        _width = width;
+        _height = height;
+    }
 
     #region IBlock basic
 
+    [Browsable(false)]
     public string Name => "Saturation";
 
-    public string Title => "Saturation";
+    [Category("Title")]
+    public string Title
+    {
+        get => _title;
+        set
+        {
+            if (_title != value)
+            {
+                _title = value;
+                OnPropertyChanged(nameof(Title));
+            }
+        }
+    }
 
+    [Browsable(false)]
     public string Content => $"Saturation: {Saturation}";
 
     #endregion
 
-    #region Layout
+    #region Layout Properties
 
+    /// <inheritdoc />
     [Category("Layout")]
-    [Description("Width of the block node")]
-    public int Width
+    public double X
     {
-        get => _nodeWidth;
+        get => _x;
         set
         {
-            if (_nodeWidth != value)
+            if (Math.Abs(_x - value) > double.Epsilon)
             {
-                _nodeWidth = value;
+                _x = value;
+                OnPropertyChanged(nameof(X));
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    [Category("Layout")]
+    public double Y
+    {
+        get => _y;
+        set
+        {
+            if (Math.Abs(_y - value) > double.Epsilon)
+            {
+                _y = value;
+                OnPropertyChanged(nameof(Y));
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    [Category("Layout")]
+    public int Width
+    {
+        get => _width;
+        set
+        {
+            if (_width != value)
+            {
+                _width = value;
                 OnPropertyChanged(nameof(Width));
             }
         }
     }
 
+    /// <inheritdoc />
     [Category("Layout")]
-    [Description("Height of the block node")]
     public int Height
     {
-        get => _nodeHeight;
+        get => _height;
         set
         {
-            if (_nodeHeight != value)
+            if (_height != value)
             {
-                _nodeHeight = value;
+                _height = value;
                 OnPropertyChanged(nameof(Height));
             }
         }
@@ -65,7 +127,9 @@ public class SaturationBlock : IBlock
 
     #region Sockets
 
+    [Browsable(false)]
     public IReadOnlyList<Socket> Inputs => _inputs;
+    [Browsable(false)]
     public IReadOnlyList<Socket> Outputs => _outputs;
 
     #endregion
@@ -104,12 +168,25 @@ public class SaturationBlock : IBlock
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
-        return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value));
+        return Execute(inputs, CancellationToken.None);
+    }
+
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
+        IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
+    {
+        return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value), cancellationToken);
     }
 
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
+        return Execute(inputs, CancellationToken.None);
+    }
+
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
+        IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(inputs, nameof(inputs));
         if (!inputs.TryGetValue(_inputs[0].Id, out var inItems))
             throw new ArgumentException($"Input items not found for the expected input socket {_inputs[0].Id}.", nameof(inputs));
 
@@ -117,6 +194,7 @@ public class SaturationBlock : IBlock
 
         foreach (var sourceItem in inItems.OfType<WorkItem>())
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (Math.Abs(Saturation - 1.0f) >= float.Epsilon)
                 sourceItem.Image.Mutate(x => x.Saturate(Saturation));
             outputItems.Add(sourceItem);

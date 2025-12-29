@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+
 using SixLabors.ImageSharp;
 
 namespace ImageAutomate.Core;
@@ -11,10 +12,10 @@ namespace ImageAutomate.Core;
 /// custom metadata. Implementations may use the metadata dictionary to store additional information relevant to the
 /// work item's processing or lifecycle.
 /// </remarks>
-public interface IBasicWorkItem
+public interface IBasicWorkItem : IDisposable, ICloneable
 {
     Guid Id { get; }
-    IImmutableDictionary<string, object> Metadata { get; }
+    IImmutableDictionary<string, object> Metadata { get; set; }
 }
 
 /// <summary>
@@ -25,9 +26,10 @@ public interface IBasicWorkItem
 /// the work item is disposed. The Metadata dictionary can be used to store additional information relevant to the work
 /// item.
 /// </remarks>
-public interface IWorkItem : IBasicWorkItem, IDisposable
+public interface IWorkItem : IBasicWorkItem
 {
     Image Image { get; }
+    float SizeMP { get; }
 }
 
 /// <summary>
@@ -38,7 +40,8 @@ public interface IWorkItem : IBasicWorkItem, IDisposable
 /// the work item is disposed. The Metadata dictionary can be used to store additional information relevant to the work
 /// item.
 /// </remarks>
-public interface IBatchWorkItem : IBasicWorkItem, IDisposable
+public interface IBatchWorkItem : IBasicWorkItem
 {
     IReadOnlyList<Image> Images { get; }
+    float TotalSizeMP { get; }
 }

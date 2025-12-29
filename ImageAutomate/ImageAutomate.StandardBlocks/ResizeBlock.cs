@@ -1,20 +1,16 @@
-﻿using ImageAutomate.Core;
+using System.ComponentModel;
+
+using ImageAutomate.Core;
+
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Transforms;
-using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
-public enum ResizeModeOption
-{
-    Fixed,
-    KeepAspect,
-    Fit,
-    Fill,
-    Pad
-}
-
+/// <summary>
+/// Specifies the algorithm used for resampling during resize.
+/// </summary>
 public enum ResizeResampler
 {
     NearestNeighbor,
@@ -24,6 +20,22 @@ public enum ResizeResampler
     Lanczos3,
     Spline
 }
+
+/// <summary>
+/// Specifies the mode of resizing.
+/// </summary>
+public enum ResizeModeOption
+{
+    Fixed,
+    KeepAspect,
+    Fit,
+    Fill,
+    Pad
+}
+
+/// <summary>
+/// A block that resizes an image.
+/// </summary>
 public class ResizeBlock : IBlock
 {
     #region Fields
@@ -33,80 +45,117 @@ public class ResizeBlock : IBlock
 
     private bool _disposed;
 
-    private int _nodeWidth = 200;
-    private int _nodeHeight = 110;
-
-    // Configuration
-    private ResizeModeOption _resizeMode = ResizeModeOption.Fit;
-    private int? _targetWidth;
-    private int? _targetHeight;
+    private ResizeModeOption _resizeMode = ResizeModeOption.Fixed;
+    private int? _targetWidth = 100;
+    private int? _targetHeight = 100;
     private bool _preserveAspectRatio = true;
-    private ResizeResampler _resampler = ResizeResampler.Lanczos3;
-    private Color _backgroundColor = Color.Transparent;
+    private ResizeResampler _resampler = ResizeResampler.Bicubic;
+    private Color _paddingColor = Color.Black;
+
+    // Layout fields
+    private double _x;
+    private double _y;
+    private int _width;
+    private int _height;
+    private string _title = "Resize";
 
     #endregion
 
-    #region IBlock basic properties
-
-    public string Name => "Resize";
-
-    public string Title
+    public ResizeBlock()
+        : this(200, 100)
     {
-        get => "Resize";
     }
 
-    public string Content
+    public ResizeBlock(int width, int height)
     {
-        get
+        _width = width;
+        _height = height;
+    }
+
+    #region IBlock basic
+
+    /// <inheritdoc />
+    [Browsable(false)]
+    public string Name => "Resize";
+
+    /// <inheritdoc />
+    [Category("Title")]
+    public string Title
+    {
+        get => _title;
+        set
         {
-            if (ResizeMode is ResizeModeOption.Fixed)
-                return $"Resize mode: {ResizeMode}\n" +
-                       $"Width: {TargetWidth}\n" +
-                       $"Height: {TargetHeight}\n" +
-                       $"Preserve aspect ratio: {PreserveAspectRatio}\n" +
-                       $"Resampler: {Resampler}\n";
-            else if (ResizeMode is ResizeModeOption.Pad)
-                return $"Resize mode: {ResizeMode}\n" +
-                       $"Width: {TargetWidth}\n" +
-                       $"Height: {TargetHeight}\n" +
-                       $"Resampler: {Resampler}\n" +
-                       $"Back ground color: {BackgroundColor}\n";
-            return $"Resize mode: {ResizeMode}\n" +
-                   $"Width: {TargetWidth}\n" +
-                   $"Height: {TargetHeight}\n" +
-                   $"Resampler: {Resampler}\n";
+            if (_title != value)
+            {
+                _title = value;
+                OnPropertyChanged(nameof(Title));
+            }
         }
     }
 
+    /// <inheritdoc />
+    [Browsable(false)]
+    public string Content => $"Size: {TargetWidth}x{TargetHeight}\nMode: {ResizeMode}";
+
     #endregion
 
-    #region Layout (node size)
+    #region Layout Properties
 
+    /// <inheritdoc />
     [Category("Layout")]
-    [Description("Width of the block node")]
-    public int Width
+    public double X
     {
-        get => _nodeWidth;
+        get => _x;
         set
         {
-            if (_nodeWidth != value)
+            if (Math.Abs(_x - value) > double.Epsilon)
             {
-                _nodeWidth = value;
+                _x = value;
+                OnPropertyChanged(nameof(X));
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    [Category("Layout")]
+    public double Y
+    {
+        get => _y;
+        set
+        {
+            if (Math.Abs(_y - value) > double.Epsilon)
+            {
+                _y = value;
+                OnPropertyChanged(nameof(Y));
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    [Category("Layout")]
+    public int Width
+    {
+        get => _width;
+        set
+        {
+            if (_width != value)
+            {
+                _width = value;
                 OnPropertyChanged(nameof(Width));
             }
         }
     }
 
+    /// <inheritdoc />
     [Category("Layout")]
-    [Description("Height of the block node")]
     public int Height
     {
-        get => _nodeHeight;
+        get => _height;
         set
         {
-            if (_nodeHeight != value)
+            if (_height != value)
             {
-                _nodeHeight = value;
+                _height = value;
                 OnPropertyChanged(nameof(Height));
             }
         }
@@ -116,15 +165,22 @@ public class ResizeBlock : IBlock
 
     #region Sockets
 
+    /// <inheritdoc />
+    [Browsable(false)]
     public IReadOnlyList<Socket> Inputs => _inputs;
+    /// <inheritdoc />
+    [Browsable(false)]
     public IReadOnlyList<Socket> Outputs => _outputs;
 
     #endregion
 
-    #region Configuration properties
+    #region Configuration
 
+    /// <summary>
+    /// Gets or sets the resize mode.
+    /// </summary>
     [Category("Configuration")]
-    [Description("Resize mode controlling how the target size is interpreted")]
+    [Description("Resizing logic (Fixed, KeepAspect, Fit, Fill, Pad).")]
     public ResizeModeOption ResizeMode
     {
         get => _resizeMode;
@@ -138,6 +194,9 @@ public class ResizeBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Gets or sets the target width.
+    /// </summary>
     [Category("Configuration")]
     [Description("Target width in pixels. Interpretation depends on ResizeMode.")]
     public int? TargetWidth
@@ -156,6 +215,9 @@ public class ResizeBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Gets or sets the target height.
+    /// </summary>
     [Category("Configuration")]
     [Description("Target height in pixels. Interpretation depends on ResizeMode.")]
     public int? TargetHeight
@@ -174,6 +236,9 @@ public class ResizeBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Gets or sets whether to preserve aspect ratio in Fixed mode.
+    /// </summary>
     [Category("Configuration")]
     [Description("If true, preserves aspect ratio in Fixed mode.")]
     public bool PreserveAspectRatio
@@ -189,6 +254,9 @@ public class ResizeBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Gets or sets the resampling algorithm.
+    /// </summary>
     [Category("Configuration")]
     [Description("Resampling kernel used during resize.")]
     public ResizeResampler Resampler
@@ -204,17 +272,20 @@ public class ResizeBlock : IBlock
         }
     }
 
+    /// <summary>
+    /// Gets or sets the background color for Pad mode.
+    /// </summary>
     [Category("Configuration")]
     [Description("Background color used when ResizeMode = Pad.")]
-    public Color BackgroundColor
+    public Color PaddingColor
     {
-        get => _backgroundColor;
+        get => _paddingColor;
         set
         {
-            if (_backgroundColor != value)
+            if (_paddingColor != value)
             {
-                _backgroundColor = value;
-                OnPropertyChanged(nameof(BackgroundColor));
+                _paddingColor = value;
+                OnPropertyChanged(nameof(PaddingColor));
             }
         }
     }
@@ -223,8 +294,12 @@ public class ResizeBlock : IBlock
 
     #region INotifyPropertyChanged
 
+    /// <inheritdoc />
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>
+    /// Raises the PropertyChanged event.
+    /// </summary>
     protected void OnPropertyChanged(string propertyName)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
@@ -232,13 +307,28 @@ public class ResizeBlock : IBlock
 
     #region Execute
 
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
-        return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value));
+        return Execute(inputs, CancellationToken.None);
     }
 
+    /// <inheritdoc />
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
+    {
+        return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value), cancellationToken);
+    }
+
+    /// <inheritdoc />
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
+        return Execute(inputs, CancellationToken.None);
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(inputs, nameof(inputs));
         if (!inputs.TryGetValue(_inputs[0].Id, out var inItems))
             throw new ArgumentException($"Input items not found for the expected input socket {_inputs[0].Id}.", nameof(inputs));
 
@@ -246,6 +336,7 @@ public class ResizeBlock : IBlock
 
         foreach (var sourceItem in inItems.OfType<WorkItem>())
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var resizeOptions = BuildResizeOptions(sourceItem.Image.Width, sourceItem.Image.Height);
             sourceItem.Image.Mutate(x => x.Resize(resizeOptions));
             outputItems.Add(sourceItem);
@@ -286,13 +377,13 @@ public class ResizeBlock : IBlock
 
         if (_resizeMode == ResizeModeOption.Pad)
         {
-            options.PadColor = BackgroundColor;
+            options.PadColor = PaddingColor;
         }
 
         return options;
     }
 
-    private Size ComputeTargetSize(int srcWidth, int srcHeight)
+    private SixLabors.ImageSharp.Size ComputeTargetSize(int srcWidth, int srcHeight)
     {
         int tw = TargetWidth ?? 0;
         int th = TargetHeight ?? 0;
@@ -307,7 +398,7 @@ public class ResizeBlock : IBlock
                     if (tw <= 0 || th <= 0)
                         throw new InvalidOperationException("ResizeBlock (Fixed): TargetWidth and TargetHeight must be positive.");
 
-                    return new Size(tw, th);
+                    return new(tw, th);
                 }
                 else
                 {
@@ -333,7 +424,7 @@ public class ResizeBlock : IBlock
 
                     int rw = Math.Max(1, (int)Math.Round(srcWidth * scale));
                     int rh = Math.Max(1, (int)Math.Round(srcHeight * scale));
-                    return new Size(rw, rh);
+                    return new(rw, rh);
                 }
 
             case ResizeModeOption.KeepAspect:
@@ -360,7 +451,7 @@ public class ResizeBlock : IBlock
 
                     int rw = Math.Max(1, (int)Math.Round(srcWidth * scale));
                     int rh = Math.Max(1, (int)Math.Round(srcHeight * scale));
-                    return new Size(rw, rh);
+                    return new(rw, rh);
                 }
 
             case ResizeModeOption.Fit:
@@ -370,7 +461,7 @@ public class ResizeBlock : IBlock
                     if (tw <= 0 || th <= 0)
                         throw new InvalidOperationException("ResizeBlock (Fit/Fill/Pad): TargetWidth and TargetHeight must be positive.");
 
-                    return new Size(tw, th);
+                    return new(tw, th);
                 }
 
             default:
@@ -410,6 +501,10 @@ public class ResizeBlock : IBlock
 
     #region IDisposable
 
+    /// <summary>
+    /// Releases unmanaged and - optionally - managed resources.
+    /// </summary>
+    /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
     protected virtual void Dispose(bool disposing)
     {
         if (!_disposed)
@@ -418,6 +513,7 @@ public class ResizeBlock : IBlock
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Dispose(true);

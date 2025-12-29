@@ -2,26 +2,28 @@ using System.Drawing.Drawing2D;
 
 using ImageAutomate.Core;
 
-using GeomEdge = Microsoft.Msagl.Core.Layout.Edge;
-using GeomNode = Microsoft.Msagl.Core.Layout.Node;
-
 namespace ImageAutomate.UI;
 
-public sealed class NodeRenderer: IDisposable
+/// <summary>
+/// Handles the low-level GDI+ rendering of nodes and edges in the graph panel.
+/// </summary>
+public sealed class NodeRenderer : IDisposable
 {
     public static readonly NodeRenderer Instance = new();
 
     #region Fields
     private Pen _edgePen;
+    private Pen _selectedEdgePen;
+    private Pen _dragEdgePen;
+    private Pen _borderPenNormal;
+    private Pen _socketBorderPen;
     private SolidBrush _bgBrush;
     private SolidBrush _headerBrush;
     private SolidBrush _textBrush;
-    private Pen _borderPenNormal;
-    private Font _labelFont;
-    private Font _detailFont;
     private SolidBrush _socketInputBrush;
     private SolidBrush _socketOutputBrush;
-    private Pen _socketBorderPen;
+    private Font _labelFont;
+    private Font _detailFont;
     private bool _isDisposed;
     #endregion
 
@@ -29,6 +31,8 @@ public sealed class NodeRenderer: IDisposable
     {
         var edgeColor = Color.FromArgb(150, 150, 150);
         _edgePen = new Pen(edgeColor, 2);
+        _selectedEdgePen = new Pen(Color.Red, 3);
+        _dragEdgePen = new Pen(Color.Orange, 2) { DashStyle = DashStyle.Dash };
 
         _bgBrush = new SolidBrush(Color.FromArgb(60, 60, 60));
         _headerBrush = new SolidBrush(Color.FromArgb(80, 80, 80));
@@ -44,127 +48,83 @@ public sealed class NodeRenderer: IDisposable
         _socketBorderPen = new Pen(Color.White, 1.5f);
     }
 
-    public void DrawEdge(Graphics g, GeomEdge geomEdge, double socketRadius)
+    /// <summary>
+    /// Calculates the screen position of a socket based on the block's layout properties.
+    /// </summary>
+    public static PointF GetSocketPosition(IBlock block, bool isInput)
     {
-        var sourceNode = geomEdge.Source;
-        var targetNode = geomEdge.Target;
+        ArgumentNullException.ThrowIfNull(block);
+        if (isInput)
+        {
+            return new PointF((float)block.X, (float)(block.Y + block.Height / 2));
+        }
+        else
+        {
+            return new PointF((float)(block.X + block.Width), (float)(block.Y + block.Height / 2));
+        }
+    }
 
-        if (sourceNode?.BoundingBox == null || targetNode?.BoundingBox == null)
-            return;
+    /// <summary>
+    /// Generates a Bezier curve path representing an edge between two blocks.
+    /// </summary>
+    public static GraphicsPath GetEdgePath(IBlock source, IBlock target)
+    {
+        PointF start = GetSocketPosition(source, isInput: false);
+        PointF end = GetSocketPosition(target, isInput: true);
+        return CreateBezierPath(start, end);
+    }
 
-        // Calculate socket positions based on node boundaries
-        // Input is on the Left, Output is on the Right
-
-        // Source (Output) -> Right side
-        PointF start = new(
-            (float)sourceNode.BoundingBox.Right,
-            (float)sourceNode.Center.Y
-        );
-
-        // Target (Input) -> Left side
-        PointF end = new(
-            (float)targetNode.BoundingBox.Left,
-            (float)targetNode.Center.Y
-        );
-
-        // Use a bezier curve for nicer connections
+    private static GraphicsPath CreateBezierPath(PointF start, PointF end)
+    {
+        GraphicsPath path = new();
         float controlPointOffset = Math.Max(Math.Abs(end.X - start.X) / 2, 50);
 
         PointF cp1 = new(start.X + controlPointOffset, start.Y);
         PointF cp2 = new(end.X - controlPointOffset, end.Y);
 
-        g.DrawBezier(_edgePen, start, cp1, cp2, end);
+        path.AddBezier(start, cp1, cp2, end);
+        return path;
     }
 
-    public void DrawNodeDirect(Graphics g, GeomNode geomNode, bool isSelected, Color selectionColor, double socketRadius)
+    /// <summary>
+    /// Draws a connection edge on the graphics surface.
+    /// </summary>
+    internal void DrawEdge(Graphics g, IBlock source, IBlock target, bool isSelected, double socketRadius)
     {
-        if (geomNode.UserData is not IBlock block)
-            return;
+        using var path = GetEdgePath(source, target);
+        g.DrawPath(isSelected ? _selectedEdgePen : _edgePen, path);
+    }
 
-        var bounds = geomNode.BoundingBox;
+    /// <summary>
+    /// Draws a temporary edge being dragged by the user.
+    /// </summary>
+    internal void DrawDragEdge(Graphics g, PointF start, PointF end)
+    {
+        float controlPointOffset = Math.Max(Math.Abs(end.X - start.X) / 2, 50);
+        PointF cp1 = new(start.X + controlPointOffset, start.Y);
+        PointF cp2 = new(end.X - controlPointOffset, end.Y);
+        g.DrawBezier(_dragEdgePen, start, cp1, cp2, end);
+    }
+
+    /// <summary>
+    /// Draws a node (block) on the graphics surface using the block's layout properties.
+    /// </summary>
+    internal void DrawNode(Graphics g, IBlock block, bool isSelected, Color selectionColor, double socketRadius)
+    {
         RectangleF rect = new(
-            (float)bounds.Left,
-            (float)bounds.Bottom,
-            (float)bounds.Width,
-            (float)bounds.Height
+            (float)block.X,
+            (float)block.Y,
+            block.Width,
+            block.Height
         );
 
         float radius = 8;
-        var state = g.Save();
 
-        using (var path = CreateRoundedRectPath(rect, radius))
-        {
-            g.FillPath(_bgBrush, path);
-            if (isSelected)
-            {
-                using var borderPen = new Pen(selectionColor, 3);
-                g.DrawPath(borderPen, path);
-            }
-            else
-            {
-                g.DrawPath(_borderPenNormal, path);
-            }
-        }
-
-        RectangleF headerRect = new(rect.X, rect.Bottom - 25, rect.Width, 25);
-
-        using (var headerPath = CreateRoundedRectPath(headerRect, radius, topOnly: true))
-        {
-            g.FillPath(_headerBrush, headerPath);
-        }
-
-        g.Restore(state);
-        state = g.Save();
-
-        // Flip for text rendering
-        using (var flipMatrix = new Matrix(1, 0, 0, -1, 0, 2 * (rect.Y + rect.Height / 2)))
-        {
-            g.MultiplyTransform(flipMatrix);
-        }
-
-        // Text Coordinates in Flipped Space
-        g.DrawString(block.Title, _labelFont, _textBrush, new PointF(rect.X + 10, rect.Y + 5));
-
-        float yOffset = rect.Y + 35;
-        string[] lines = block.Content.Split('\n');
-        foreach (var line in lines)
-        {
-            g.DrawString(line, _detailFont, _textBrush, new PointF(rect.X + 10, yOffset));
-            yOffset += 15;
-        }
-
-        g.Restore(state);
-        state = g.Save();
-
-        // Draw Sockets
-        DrawSocket(g, new PointF(rect.Left, rect.Top + rect.Height / 2), isInput: true, socketRadius);
-        DrawSocket(g, new PointF(rect.Right, rect.Top + rect.Height / 2), isInput: false, socketRadius);
-
-        g.Restore(state);
-    }
-
-    public void DrawNodeOptimized(Graphics g, GeomNode geomNode, bool isSelected, Color selectionColor, double socketRadius)
-    {
-        if (geomNode.UserData is not IBlock block) return;
-
-        var bounds = geomNode.BoundingBox;
-        RectangleF rect = new(
-            (float)bounds.Left,
-            (float)bounds.Bottom,
-            (float)bounds.Width,
-            (float)bounds.Height
-        );
-        float radius = 8;
-
-        // Create the combined path for the background
         using var mainPath = CreateRoundedRectPath(rect, radius);
 
-        // Header at Visual Top (MSAGL Top)
-        RectangleF headerRect = new(rect.X, rect.Bottom - 25, rect.Width, 25);
+        RectangleF headerRect = new(rect.X, rect.Y, rect.Width, 25);
         using var headerPath = CreateRoundedRectPath(headerRect, radius, topOnly: true);
 
-        // Drawing - Shape Layer
-        // Use cached brushes
         g.FillPath(_bgBrush, mainPath);
         g.FillPath(_headerBrush, headerPath);
 
@@ -178,14 +138,6 @@ public sealed class NodeRenderer: IDisposable
             g.DrawPath(_borderPenNormal, mainPath);
         }
 
-        // Drawing - Text Layer
-        var state = g.Save();
-        using (var flipMatrix = new Matrix(1, 0, 0, -1, 0, 2 * (rect.Y + rect.Height / 2)))
-        {
-            g.MultiplyTransform(flipMatrix);
-        }
-
-        // Use cached fonts and brushes
         g.DrawString(block.Title, _labelFont, _textBrush, new PointF(rect.X + 10, rect.Y + 5));
 
         float yOffset = rect.Y + 35;
@@ -196,50 +148,43 @@ public sealed class NodeRenderer: IDisposable
             yOffset += 15;
         }
 
-        g.Restore(state);
-
-        DrawSocket(g, new PointF(rect.Left, rect.Top + rect.Height / 2), isInput: true, socketRadius);
-        DrawSocket(g, new PointF(rect.Right, rect.Top + rect.Height / 2), isInput: false, socketRadius);
+        if (block.Inputs.Count > 0)
+        {
+            DrawSocket(g, GetSocketPosition(block, true), isInput: true, socketRadius);
+        }
+        if (block.Outputs.Count > 0)
+        {
+            DrawSocket(g, GetSocketPosition(block, false), isInput: false, socketRadius);
+        }
     }
 
-    // Shared Helper Methods
     private static GraphicsPath CreateRoundedRectPath(RectangleF rect, float radius, bool topOnly = false)
     {
         GraphicsPath path = new();
         float diameter = radius * 2;
 
-        // MSAGL coords (Y-up)
         float left = rect.X;
-        float bottom = rect.Y;
+        float visualTop = rect.Y;
         float right = rect.Right;
-        float top = rect.Bottom; // RectangleF.Bottom is Y + Height
+        float visualBottom = rect.Bottom;
 
         path.StartFigure();
 
         if (topOnly)
         {
-             // Top Right (Rounded)
-            path.AddArc(right - diameter, top - diameter, diameter, diameter, 0, 90);
-            // Top Left (Rounded)
-            path.AddArc(left, top - diameter, diameter, diameter, 90, 90);
-
-            // Line down to header bottom
-            path.AddLine(left, top - diameter + radius, left, bottom);
-            // Line across bottom
-            path.AddLine(left, bottom, right, bottom);
-            // Line up
-            path.AddLine(right, bottom, right, top - diameter + radius);
+            // Visual Top Only (Rounded Top, Flat Bottom)
+            path.AddArc(left, visualTop, diameter, diameter, 180, 90); // Top Left
+            path.AddArc(right - diameter, visualTop, diameter, diameter, 270, 90); // Top Right
+            path.AddLine(right, visualTop + radius, right, visualBottom); // Down Right
+            path.AddLine(right, visualBottom, left, visualBottom); // Across Bottom
+            path.AddLine(left, visualBottom, left, visualTop + radius); // Up Left
         }
         else
         {
-            // Top Right Corner
-            path.AddArc(right - diameter, top - diameter, diameter, diameter, 0, 90);
-            // Top Left Corner
-            path.AddArc(left, top - diameter, diameter, diameter, 90, 90);
-            // Bottom Left Corner
-            path.AddArc(left, bottom, diameter, diameter, 180, 90);
-            // Bottom Right Corner
-            path.AddArc(right - diameter, bottom, diameter, diameter, 270, 90);
+            path.AddArc(right - diameter, visualBottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(left, visualBottom - diameter, diameter, diameter, 90, 90);
+            path.AddArc(left, visualTop, diameter, diameter, 180, 90);
+            path.AddArc(right - diameter, visualTop, diameter, diameter, 270, 90);
         }
 
         path.CloseFigure();
@@ -267,6 +212,8 @@ public sealed class NodeRenderer: IDisposable
         if (_isDisposed) return;
 
         _edgePen?.Dispose();
+        _selectedEdgePen?.Dispose();
+        _dragEdgePen?.Dispose();
         _bgBrush?.Dispose();
         _headerBrush?.Dispose();
         _textBrush?.Dispose();

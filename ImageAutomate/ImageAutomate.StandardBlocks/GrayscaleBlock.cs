@@ -1,11 +1,8 @@
-﻿using ImageAutomate.Core;
-using SixLabors.ImageSharp.Processing;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
+using ImageAutomate.Core;
+
+using SixLabors.ImageSharp.Processing;
 
 namespace ImageAutomate.StandardBlocks;
 
@@ -15,59 +12,118 @@ public enum GrayscaleOptions
     Bt709
 }
 
-public class GrayscaleBlock
+public class GrayscaleBlock : IBlock
 {
     #region Fields
 
-    private readonly IReadOnlyList<Socket> _inputs = [new("Brightness.In", "Image.In")];
-    private readonly IReadOnlyList<Socket> _outputs = [new("Brightness.Out", "Image.Out")];
+    private readonly IReadOnlyList<Socket> _inputs = [new("Grayscale.In", "Image.In")];
+    private readonly IReadOnlyList<Socket> _outputs = [new("Grayscale.Out", "Image.Out")];
 
     private bool _disposed;
 
-    private int _nodeWidth = 200;
-    private int _nodeHeight = 100;
-
     private GrayscaleOptions _grayOptions = GrayscaleOptions.Bt601;
+
+    // Layout fields
+    private double _x;
+    private double _y;
+    private int _width;
+    private int _height;
+    private string _title = "GrayScale";
 
     #endregion
 
+    public GrayscaleBlock()
+        : this(200, 100)
+    {
+    }
+
+    public GrayscaleBlock(int width, int height)
+    {
+        _width = width;
+        _height = height;
+    }
+
     #region IBlock basic
 
+    [Browsable(false)]
     public string Name => "GrayScale";
 
-    public string Title => "GrayScale";
+    [Category("Title")]
+    public string Title
+    {
+        get => _title;
+        set
+        {
+            if (_title != value)
+            {
+                _title = value;
+                OnPropertyChanged(nameof(Title));
+            }
+        }
+    }
 
+    [Browsable(false)]
     public string Content => $"Gray scale option: {GrayscaleOption}";
 
     #endregion
 
-    #region Layout
+    #region Layout Properties
 
+    /// <inheritdoc />
     [Category("Layout")]
-    [Description("Width of the block node")]
-    public int Width
+    public double X
     {
-        get => _nodeWidth;
+        get => _x;
         set
         {
-            if (_nodeWidth != value)
+            if (Math.Abs(_x - value) > double.Epsilon)
             {
-                _nodeWidth = value;
+                _x = value;
+                OnPropertyChanged(nameof(X));
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    [Category("Layout")]
+    public double Y
+    {
+        get => _y;
+        set
+        {
+            if (Math.Abs(_y - value) > double.Epsilon)
+            {
+                _y = value;
+                OnPropertyChanged(nameof(Y));
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    [Category("Layout")]
+    public int Width
+    {
+        get => _width;
+        set
+        {
+            if (_width != value)
+            {
+                _width = value;
                 OnPropertyChanged(nameof(Width));
             }
         }
     }
 
+    /// <inheritdoc />
     [Category("Layout")]
-    [Description("Height of the block node")]
     public int Height
     {
-        get => _nodeHeight;
+        get => _height;
         set
         {
-            if (_nodeHeight != value)
+            if (_height != value)
             {
-                _nodeHeight = value;
+                _height = value;
                 OnPropertyChanged(nameof(Height));
             }
         }
@@ -77,7 +133,9 @@ public class GrayscaleBlock
 
     #region Sockets
 
+    [Browsable(false)]
     public IReadOnlyList<Socket> Inputs => _inputs;
+    [Browsable(false)]
     public IReadOnlyList<Socket> Outputs => _outputs;
 
     #endregion
@@ -85,7 +143,7 @@ public class GrayscaleBlock
     #region Configuration
 
     [Category("Configuration")]
-    [Description("Contrast factor 1.0 = no change, <1.0 = lower bright, >1.0 = higher bright.")]
+    [Description("The grayscale conversion mode to use. Bt601 and Bt709 are supported.")]
     public GrayscaleOptions GrayscaleOption
     {
         get => _grayOptions;
@@ -115,12 +173,25 @@ public class GrayscaleBlock
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs)
     {
-        return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value));
+        return Execute(inputs, CancellationToken.None);
+    }
+
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
+        IDictionary<Socket, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
+    {
+        return Execute(inputs.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value), cancellationToken);
     }
 
     public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
         IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs)
     {
+        return Execute(inputs, CancellationToken.None);
+    }
+
+    public IReadOnlyDictionary<Socket, IReadOnlyList<IBasicWorkItem>> Execute(
+        IDictionary<string, IReadOnlyList<IBasicWorkItem>> inputs, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(inputs, nameof(inputs));
         if (!inputs.TryGetValue(_inputs[0].Id, out var inItems))
             throw new ArgumentException($"Input items not found for the expected input socket {_inputs[0].Id}.", nameof(inputs));
 
@@ -128,6 +199,7 @@ public class GrayscaleBlock
 
         foreach (var sourceItem in inItems.OfType<WorkItem>())
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (GrayscaleOption is GrayscaleOptions.Bt709)
                 sourceItem.Image.Mutate(x => x.Grayscale(GrayscaleMode.Bt709));
             else
