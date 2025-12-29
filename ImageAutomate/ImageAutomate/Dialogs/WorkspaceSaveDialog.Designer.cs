@@ -31,6 +31,10 @@ namespace ImageAutomate.Dialogs
             tableLayoutPanel = new TableLayoutPanel();
             labelName = new Label();
             textBoxName = new TextBox();
+            labelFilePath = new Label();
+            panelFilePathSelection = new Panel();
+            textBoxFilePath = new TextBox();
+            buttonBrowseFile = new Button();
             labelImage = new Label();
             panelImageSelection = new Panel();
             textBoxImagePath = new TextBox();
@@ -39,10 +43,8 @@ namespace ImageAutomate.Dialogs
             panelButtons = new Panel();
             buttonCancel = new Button();
             buttonOK = new Button();
-            labelFilePath = new Label();
-            textBoxFilePath = new TextBox();
-            buttonBrowseFile = new Button();
             tableLayoutPanel.SuspendLayout();
+            panelFilePathSelection.SuspendLayout();
             panelImageSelection.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBoxPreview).BeginInit();
             panelButtons.SuspendLayout();
@@ -56,7 +58,7 @@ namespace ImageAutomate.Dialogs
             tableLayoutPanel.Controls.Add(labelName, 0, 0);
             tableLayoutPanel.Controls.Add(textBoxName, 1, 0);
             tableLayoutPanel.Controls.Add(labelFilePath, 0, 1);
-            tableLayoutPanel.Controls.Add(textBoxFilePath, 1, 1);
+            tableLayoutPanel.Controls.Add(panelFilePathSelection, 1, 1);
             tableLayoutPanel.Controls.Add(labelImage, 0, 2);
             tableLayoutPanel.Controls.Add(panelImageSelection, 1, 2);
             tableLayoutPanel.Controls.Add(pictureBoxPreview, 1, 3);
@@ -101,22 +103,31 @@ namespace ImageAutomate.Dialogs
             labelFilePath.TabIndex = 2;
             labelFilePath.Text = "Save As:";
             // 
+            // panelFilePathSelection
+            // 
+            panelFilePathSelection.Controls.Add(textBoxFilePath);
+            panelFilePathSelection.Controls.Add(buttonBrowseFile);
+            panelFilePathSelection.Dock = DockStyle.Fill;
+            panelFilePathSelection.Location = new Point(103, 38);
+            panelFilePathSelection.Name = "panelFilePathSelection";
+            panelFilePathSelection.Size = new Size(358, 29);
+            panelFilePathSelection.TabIndex = 3;
+            // 
             // textBoxFilePath
             // 
             textBoxFilePath.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-            textBoxFilePath.Location = new Point(103, 41);
+            textBoxFilePath.Location = new Point(0, 3);
             textBoxFilePath.Name = "textBoxFilePath";
-            textBoxFilePath.ReadOnly = true;
             textBoxFilePath.Size = new Size(278, 23);
-            textBoxFilePath.TabIndex = 3;
+            textBoxFilePath.TabIndex = 0;
             // 
             // buttonBrowseFile
             // 
             buttonBrowseFile.Anchor = AnchorStyles.Right;
-            buttonBrowseFile.Location = new Point(387, 40);
+            buttonBrowseFile.Location = new Point(284, 2);
             buttonBrowseFile.Name = "buttonBrowseFile";
             buttonBrowseFile.Size = new Size(74, 25);
-            buttonBrowseFile.TabIndex = 4;
+            buttonBrowseFile.TabIndex = 1;
             buttonBrowseFile.Text = "Browse...";
             buttonBrowseFile.UseVisualStyleBackColor = true;
             // 
@@ -127,19 +138,18 @@ namespace ImageAutomate.Dialogs
             labelImage.Location = new Point(3, 80);
             labelImage.Name = "labelImage";
             labelImage.Size = new Size(43, 15);
-            labelImage.TabIndex = 5;
+            labelImage.TabIndex = 4;
             labelImage.Text = "Image:";
             // 
             // panelImageSelection
             // 
-            panelImageSelection.Controls.Add(buttonBrowseFile);
             panelImageSelection.Controls.Add(textBoxImagePath);
             panelImageSelection.Controls.Add(buttonBrowseImage);
             panelImageSelection.Dock = DockStyle.Fill;
             panelImageSelection.Location = new Point(103, 73);
             panelImageSelection.Name = "panelImageSelection";
             panelImageSelection.Size = new Size(358, 29);
-            panelImageSelection.TabIndex = 6;
+            panelImageSelection.TabIndex = 5;
             // 
             // textBoxImagePath
             // 
@@ -168,7 +178,7 @@ namespace ImageAutomate.Dialogs
             pictureBoxPreview.Name = "pictureBoxPreview";
             pictureBoxPreview.Size = new Size(358, 185);
             pictureBoxPreview.SizeMode = PictureBoxSizeMode.Zoom;
-            pictureBoxPreview.TabIndex = 7;
+            pictureBoxPreview.TabIndex = 6;
             pictureBoxPreview.TabStop = false;
             // 
             // panelButtons
@@ -179,7 +189,7 @@ namespace ImageAutomate.Dialogs
             panelButtons.Location = new Point(103, 299);
             panelButtons.Name = "panelButtons";
             panelButtons.Size = new Size(358, 39);
-            panelButtons.TabIndex = 8;
+            panelButtons.TabIndex = 7;
             // 
             // buttonCancel
             // 
@@ -220,6 +230,8 @@ namespace ImageAutomate.Dialogs
             Text = "Save Workspace";
             tableLayoutPanel.ResumeLayout(false);
             tableLayoutPanel.PerformLayout();
+            panelFilePathSelection.ResumeLayout(false);
+            panelFilePathSelection.PerformLayout();
             panelImageSelection.ResumeLayout(false);
             panelImageSelection.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBoxPreview).EndInit();
@@ -232,6 +244,10 @@ namespace ImageAutomate.Dialogs
         private TableLayoutPanel tableLayoutPanel;
         private Label labelName;
         private TextBox textBoxName;
+        private Label labelFilePath;
+        private Panel panelFilePathSelection;
+        private TextBox textBoxFilePath;
+        private Button buttonBrowseFile;
         private Label labelImage;
         private Panel panelImageSelection;
         private TextBox textBoxImagePath;
@@ -240,8 +256,5 @@ namespace ImageAutomate.Dialogs
         private Panel panelButtons;
         private Button buttonCancel;
         private Button buttonOK;
-        private Label labelFilePath;
-        private TextBox textBoxFilePath;
-        private Button buttonBrowseFile;
     }
 }

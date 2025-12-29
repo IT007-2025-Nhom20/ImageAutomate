@@ -57,11 +57,10 @@ namespace ImageAutomate.Dialogs
             {
                 Text = "Edit Workspace";
                 buttonOK.Text = "Save";
-                labelFilePath.Visible = false;
-                textBoxFilePath.Visible = false;
-                buttonBrowseFile.Visible = false;
 
-                // Adjust layout - hide file path row
+                // Hide file path row entirely in edit mode
+                labelFilePath.Visible = false;
+                panelFilePathSelection.Visible = false;
                 tableLayoutPanel.RowStyles[1].Height = 0;
             }
             else
