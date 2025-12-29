@@ -52,6 +52,10 @@ public class ResizeBlock : IBlock
 
     private bool _isRelative = false;
     private double _scaleFactor = 1;
+
+    private AnchorPositionOption _anchorPosition = AnchorPositionOption.Center;
+    private bool _compand;
+    private bool _premultiplyAlpha = true;
     // Layout fields
     private double _x;
     private double _y;
@@ -330,6 +334,60 @@ public class ResizeBlock : IBlock
             }
         }
     }
+
+    /// <summary>
+    /// Gets or sets the anchor position.
+    /// </summary>
+    [Category("Configuration")]
+    [Description("Anchor position (used in Pad, Crop, etc.).")]
+    public AnchorPositionOption AnchorPosition
+    {
+        get => _anchorPosition;
+        set
+        {
+            if (_anchorPosition != value)
+            {
+                _anchorPosition = value;
+                OnPropertyChanged(nameof(AnchorPosition));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets whether to compress and expand color (gamma correction) during processing.
+    /// </summary>
+    [Category("Configuration")]
+    [Description("If true, performs operation in linear color space (Compand).")]
+    public bool Compand
+    {
+        get => _compand;
+        set
+        {
+            if (_compand != value)
+            {
+                _compand = value;
+                OnPropertyChanged(nameof(Compand));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets whether to premultiply alpha.
+    /// </summary>
+    [Category("Configuration")]
+    [Description("If true, premultiplies alpha component during processing.")]
+    public bool PremultiplyAlpha
+    {
+        get => _premultiplyAlpha;
+        set
+        {
+            if (_premultiplyAlpha != value)
+            {
+                _premultiplyAlpha = value;
+                OnPropertyChanged(nameof(PremultiplyAlpha));
+            }
+        }
+    }
     #endregion
 
     #region INotifyPropertyChanged
@@ -411,8 +469,9 @@ public class ResizeBlock : IBlock
             Size = targetSize,
             Mode = mode,
             Sampler = sampler,
-            PremultiplyAlpha = true,
-            Position = AnchorPositionMode.Center
+            PremultiplyAlpha = PremultiplyAlpha,
+            Compand = Compand,
+            Position = MapAnchorPosition(AnchorPosition)
         };
 
         if (_resizeMode == ResizeModeOption.Pad)
@@ -550,7 +609,22 @@ public class ResizeBlock : IBlock
             _ => SixLabors.ImageSharp.Processing.ResizeMode.Max
         };
     }
-
+    static private AnchorPositionMode MapAnchorPosition(AnchorPositionOption position)
+    {
+        return position switch
+        {
+            AnchorPositionOption.TopLeft => AnchorPositionMode.TopLeft,
+            AnchorPositionOption.Top => AnchorPositionMode.Top,
+            AnchorPositionOption.TopRight => AnchorPositionMode.TopRight,
+            AnchorPositionOption.Left => AnchorPositionMode.Left,
+            AnchorPositionOption.Center => AnchorPositionMode.Center,
+            AnchorPositionOption.Right => AnchorPositionMode.Right,
+            AnchorPositionOption.BottomLeft => AnchorPositionMode.BottomLeft,
+            AnchorPositionOption.Bottom => AnchorPositionMode.Bottom,
+            AnchorPositionOption.BottomRight => AnchorPositionMode.BottomRight,
+            _ => AnchorPositionMode.Center
+        };
+    }
     #endregion
 
     #region IDisposable
