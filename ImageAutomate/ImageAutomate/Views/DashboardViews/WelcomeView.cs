@@ -55,12 +55,6 @@ namespace ImageAutomate.Views.DashboardViews
 
             var workspaces = _workspaceService.GetAllWorkspaces();
 
-            for (int i = 0; i < workspaces.Count; i++)
-            {
-                var ws = workspaces[i];
-                Debug.WriteLine($"Workspace {i}: {ws.Name}, LastModified: {ws.LastModified}, FilePath: {ws.FilePath}");
-            }
-
             // Limit to MaxRecentWorkspaces from configuration
             var recentWorkspaces = workspaces
                 .OrderByDescending(w => w.LastModified)

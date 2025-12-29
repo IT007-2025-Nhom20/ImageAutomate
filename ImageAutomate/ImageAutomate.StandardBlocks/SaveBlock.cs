@@ -377,15 +377,8 @@ public class SaveBlock : IBlock, IShipmentSink
     /// <exception cref="InvalidOperationException">Thrown when format is not registered.</exception>
     private IImageEncoder CreateEncoder(string formatName, object encodingOptions)
     {
-        var strategy = ImageFormatRegistry.Instance.GetFormat(formatName.ToUpper(CultureInfo.InvariantCulture));
-        if (strategy == null)
-        {
-            Debug.WriteLine("Formats registered:");
-            foreach (var format in ImageFormatRegistry.Instance.GetRegisteredFormats())
-                Debug.WriteLine(format);
-            throw new InvalidOperationException($"Unknown format: {formatName}");
-        }
-
+        var strategy = ImageFormatRegistry.Instance.GetFormat(formatName.ToUpper(CultureInfo.InvariantCulture))
+            ?? throw new InvalidOperationException($"Unknown format: {formatName}");
         return strategy.CreateEncoder(encodingOptions, SkipMetadata);
     }
 

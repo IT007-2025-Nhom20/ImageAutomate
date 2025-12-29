@@ -623,7 +623,6 @@ public class GraphRenderPanel : Panel
 
         if (e.Data is null)
         {
-            Debug.WriteLine("[DragDrop] No data present in drag event.");
             base.OnDragEnter(e);
             return;
         }
@@ -636,7 +635,6 @@ public class GraphRenderPanel : Panel
                 e.Effect = DragDropEffects.Copy;
                 _ghostBlockType = t;
                 _isDragOver = true;
-                Debug.WriteLine($"[DragDrop] Accepted: {t.Name}");
                 return;
             }
         }

@@ -38,8 +38,6 @@ namespace ImageAutomate.Views.DashboardViews
 
             // Initial load
             LoadWorkspaces();
-
-            Debug.WriteLine("Workspace view initialized.");
         }
 
         private void LoadWorkspaces(string? searchQuery = null)
@@ -176,8 +174,6 @@ namespace ImageAutomate.Views.DashboardViews
                 // Raise event to notify parent (DashboardView) to switch to EditorView
                 // We pass the file path instead of the loaded object, letting the Editor load it fresh.
                 OpenEditorRequested?.Invoke(this, workspaceInfo.FilePath);
-
-                Debug.WriteLine($"Opened workspace: {workspaceInfo.Name}");
             }
             catch (Exception ex)
             {
@@ -186,8 +182,6 @@ namespace ImageAutomate.Views.DashboardViews
                     "Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
-
-                Debug.WriteLine($"Error opening workspace: {ex}");
             }
         }
 
@@ -363,13 +357,10 @@ namespace ImageAutomate.Views.DashboardViews
                         // Add to workspaces list (without opening)
                         _workspaceService.AddOrUpdateWorkspace(filePath, workspace.Name);
                         importedCount++;
-
-                        Debug.WriteLine($"Imported workspace: {workspace.Name} from {filePath}");
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         failedCount++;
-                        Debug.WriteLine($"Failed to import workspace from {filePath}: {ex.Message}");
                     }
                 }
 

@@ -72,8 +72,6 @@ public partial class EditorView : UserControl
 
     private async void OnExecuteMenuItemClick(object sender, EventArgs e)
     {
-        Debug.WriteLine("Execute was called");
-
         GraphExecutor executor = new(new GraphValidator());
 
         try
