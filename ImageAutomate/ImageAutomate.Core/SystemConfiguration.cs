@@ -10,5 +10,5 @@ public static class SystemConfiguration
     /// Used for workspace serialization and validation.
     /// </summary>
     public static Uri WorkspaceSchemaUrl { get; set; } = new Uri(
-        "https://raw.githubusercontent.com/IT007-2025-Nhom20/ImageAutomate/project-restructure/docs/workspace-schema.json");
+        "https://raw.githubusercontent.com/IT008-2025-Nhom20/ImageAutomate/main/docs/workspace-schema.json");
 }
