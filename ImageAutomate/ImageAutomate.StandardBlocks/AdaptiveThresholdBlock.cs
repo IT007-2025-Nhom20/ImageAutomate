@@ -240,7 +240,7 @@ public class AdaptiveThresholdBlock : IBlock
         get => _rectWidth;
         set
         {
-            // Đảm bảo chiều rộng không âm
+            // Ensure width is non-negative
             if (value < 0) value = 0;
 
             if (Math.Abs(_rectWidth - value) > float.Epsilon)
@@ -258,7 +258,7 @@ public class AdaptiveThresholdBlock : IBlock
         get => _rectHeight;
         set
         {
-            // Đảm bảo chiều cao không âm
+            // Ensure length is non-negative
             if (value < 0) value = 0;
 
             if (Math.Abs(_rectHeight - value) > float.Epsilon)
@@ -317,7 +317,7 @@ public class AdaptiveThresholdBlock : IBlock
 
             Rectangle region = GetProcessRegion(w, h);
             var sharpUpperColor = SharpColor.FromRgba(_upperColor.R, _upperColor.G, _upperColor.B, _upperColor.A);
-            var sharpLowerColor = SharpColor.FromRgba(_upperColor.R, _upperColor.G, _lowerColor.B, _lowerColor.A);
+            var sharpLowerColor = SharpColor.FromRgba(_lowerColor.R, _lowerColor.G, _lowerColor.B, _lowerColor.A);
             sourceItem.Image.Mutate(x => x.AdaptiveThreshold(sharpUpperColor, sharpLowerColor, ThresholdLimit, region));
 
             outputItems.Add(sourceItem);

@@ -285,14 +285,10 @@ public class OpacityBlock : IBlock
             int h = img.Height;
 
             Rectangle region = GetProcessRegion(w, h);
-            if (Amount < 1.0f && Amount > 0)
+            if (Amount > 0)
             {
                 sourceItem.Image.Mutate(x => x.Opacity(Amount, region));
             }
-            else
-            {
-                sourceItem.Image.Mutate(x => x.Opacity(1, region));
-            } 
             outputItems.Add(sourceItem);
         }
 

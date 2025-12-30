@@ -480,17 +480,8 @@ public class CropBlock : IBlock
             cancellationToken.ThrowIfCancellationRequested();
             var rect = BuildCropRegion(sourceItem.Image.Width, sourceItem.Image.Height);
 
-            // Ensure the crop region is valid and non-empty
-            if (rect.Width > 0 && rect.Height > 0)
-            {
-                sourceItem.Image.Mutate(x => x.Crop(rect));
-            }
-            else
-            {
-                if (rect.Width <= 0) rect.Width = 1;
-                if (rect.Height <= 0) rect.Height = 1;
-                sourceItem.Image.Mutate(x => x.Crop(rect));
-            }
+            sourceItem.Image.Mutate(x => x.Crop(rect));
+
             outputItems.Add(sourceItem);
         }
         

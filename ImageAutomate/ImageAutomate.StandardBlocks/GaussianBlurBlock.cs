@@ -181,7 +181,7 @@ public class GaussianBlurBlock : IBlock
     [Description("Determines how horizontal borders are handled during the blur operation.")]
     public BorderWrappingMode BorderWrappingModeY
     {
-        get => _borderWrapModeX;
+        get => _borderWrapModeY;
         set
         {
             if (_borderWrapModeY != value)

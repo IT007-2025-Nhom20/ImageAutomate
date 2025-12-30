@@ -344,7 +344,7 @@ public class BinaryThresholdBlock : IBlock
             Rectangle region = GetProcessRegion(w, h);
 
             var sharpUpperColor = SharpColor.FromRgba(_upperColor.R, _upperColor.G, _upperColor.B, _upperColor.A);
-            var sharpLowerColor = SharpColor.FromRgba(_upperColor.R, _upperColor.G, _lowerColor.B, _lowerColor.A);
+            var sharpLowerColor = SharpColor.FromRgba(_lowerColor.R, _lowerColor.G, _lowerColor.B, _lowerColor.A);
             sourceItem.Image.Mutate(x => x.BinaryThreshold(Threshold, sharpUpperColor, sharpLowerColor, MappingToBinaryThresholdMode(Mode), region));
 
             outputItems.Add(sourceItem);
@@ -356,14 +356,14 @@ public class BinaryThresholdBlock : IBlock
             };
     }
 
-    public static BinaryThresholdMode MappingToBinaryThresholdMode(BinaryThresholdOption mode)
-    {
-        if (mode == BinaryThresholdOption.Luminance)
-            return BinaryThresholdMode.Luminance;
-        else if (mode == BinaryThresholdOption.Saturation)
-            return BinaryThresholdMode.Saturation;
-        return BinaryThresholdMode.MaxChroma; 
-    }
+    public static BinaryThresholdMode MappingToBinaryThresholdMode(BinaryThresholdOption mode) =>
+        mode switch
+        {
+            BinaryThresholdOption.Luminance => BinaryThresholdMode.Luminance,
+            BinaryThresholdOption.Saturation => BinaryThresholdMode.Saturation,
+            BinaryThresholdOption.MaxChroma => BinaryThresholdMode.MaxChroma,
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), $"Not expected mode value: {mode}"),
+        };
     private Rectangle GetProcessRegion(int sourceWidth, int sourceHeight)
     {
         int x, y, w, h;
