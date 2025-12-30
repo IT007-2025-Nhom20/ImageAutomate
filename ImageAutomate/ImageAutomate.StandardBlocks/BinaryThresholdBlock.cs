@@ -1,29 +1,34 @@
-using System.ComponentModel;
-using System.ComponentModel;
-
-using ImageAutomate.Core;
-
+﻿using ImageAutomate.Core;
 using SixLabors.ImageSharp;
+
 using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.Processing.Processors.Convolution;
-using SixLabors.ImageSharp.Processing;
+using System.ComponentModel;
+using SharpColor = SixLabors.ImageSharp.Color;
+using WinColor = System.Drawing.Color;
 
 namespace ImageAutomate.StandardBlocks;
 
+public enum BinaryThresholdOption
+{
+    Luminance,
+    MaxChroma,
+    Saturation
+}
 
-public class GaussianBlurBlock : IBlock
+public class BinaryThresholdBlock : IBlock
 {
     #region Fields
 
-    private readonly IReadOnlyList<Socket> _inputs = [new("GaussianBlur.In", "Image.In")];
-    private readonly IReadOnlyList<Socket> _outputs = [new("GaussianBlur.Out", "Image.Out")];
+    private readonly IReadOnlyList<Socket> _inputs = [new("BinThreshold.In", "Image.In")];
+    private readonly IReadOnlyList<Socket> _outputs = [new("BinThreshold.Out", "Image.Out")];
 
     private bool _disposed;
 
-    private float _sigma = 1.0f;
-
-    private BorderWrappingMode _borderWrapModeX = BorderWrappingMode.Wrap;
-    private BorderWrappingMode _borderWrapModeY = BorderWrappingMode.Wrap;
+    // Configuration fields
+    private float _threshold = 0.5f;
+    private WinColor _upperColor = WinColor.White;
+    private WinColor _lowerColor = WinColor.Black;
+    private BinaryThresholdOption _mode = BinaryThresholdOption.Luminance;
 
     private bool _isRelative = true;
     private float _rectX = 0.0f;
@@ -36,16 +41,17 @@ public class GaussianBlurBlock : IBlock
     private double _y;
     private int _width;
     private int _height;
-    private string _title = "Gaussian Blur";
+    private string _title = "Binary Threshold";
+
 
     #endregion
 
-    public GaussianBlurBlock()
+    public BinaryThresholdBlock()
         : this(200, 100)
     {
     }
 
-    public GaussianBlurBlock(int width, int height)
+    public BinaryThresholdBlock(int width, int height)
     {
         _width = width;
         _height = height;
@@ -54,7 +60,7 @@ public class GaussianBlurBlock : IBlock
     #region IBlock basic
 
     [Browsable(false)]
-    public string Name => "GaussianBlur";
+    public string Name => "BinaryThreshold";
 
     [Category("Title")]
     public string Title
@@ -71,13 +77,12 @@ public class GaussianBlurBlock : IBlock
     }
 
     [Browsable(false)]
-    public string Content => $"Sigma: {Sigma}\nBorderModeX: {BorderWrappingModeX}\nBorderModeY: {BorderWrappingModeY}";
+    public string Content => $"Threshold: {Threshold:F2}\nMode: {Mode}";
 
     #endregion
 
     #region Layout Properties
 
-    /// <inheritdoc />
     [Category("Layout")]
     public double X
     {
@@ -92,7 +97,6 @@ public class GaussianBlurBlock : IBlock
         }
     }
 
-    /// <inheritdoc />
     [Category("Layout")]
     public double Y
     {
@@ -107,7 +111,6 @@ public class GaussianBlurBlock : IBlock
         }
     }
 
-    /// <inheritdoc />
     [Category("Layout")]
     public int Width
     {
@@ -122,7 +125,6 @@ public class GaussianBlurBlock : IBlock
         }
     }
 
-    /// <inheritdoc />
     [Category("Layout")]
     public int Height
     {
@@ -151,47 +153,63 @@ public class GaussianBlurBlock : IBlock
     #region Configuration
 
     [Category("Configuration")]
-    [Description("Blur intensity (sigma). Recommended range: 0.5–25.0. 0.0 = no blur.")]
-    public float Sigma
+    [Description("The threshold value (0.0 to 1.0). Pixels with a calculated value higher than this get the UpperColor.")]
+    public float Threshold
     {
-        get => _sigma;
+        get => _threshold;
         set
         {
-            var clamped = Math.Clamp(value, 0.0f, 25.0f);
-            if (Math.Abs(_sigma - clamped) > float.Epsilon)
+            var clamped = Math.Clamp(value, 0.0f, 1.0f);
+            if (Math.Abs(_threshold - clamped) > float.Epsilon)
             {
-                _sigma = clamped;
-                OnPropertyChanged(nameof(Sigma));
+                _threshold = clamped;
+                OnPropertyChanged(nameof(Threshold));
+                OnPropertyChanged(nameof(Content));
             }
         }
     }
 
     [Category("Configuration")]
-    [Description("Determines how horizontal borders are handled during the blur operation.")]
-    public BorderWrappingMode BorderWrappingModeX
+    [Description("The metric used to compare against the threshold.")]
+    public BinaryThresholdOption Mode
     {
-        get => _borderWrapModeX;
+        get => _mode;
         set
         {
-            if (_borderWrapModeX != value)
+            if (_mode != value)
             {
-                _borderWrapModeX = value;
-                OnPropertyChanged(nameof(BorderWrappingModeX));
-            }    
+                _mode = value;
+                OnPropertyChanged(nameof(Mode));
+            }
         }
     }
 
     [Category("Configuration")]
-    [Description("Determines how horizontal borders are handled during the blur operation.")]
-    public BorderWrappingMode BorderWrappingModeY
+    [Description("The color assigned when the value is >= Threshold.")]
+    public WinColor UpperColor
     {
-        get => _borderWrapModeY;
+        get => _upperColor;
         set
         {
-            if (_borderWrapModeY != value)
+            if (_upperColor != value)
             {
-                _borderWrapModeY = value;
-                OnPropertyChanged(nameof(BorderWrappingModeY));
+                _upperColor = value;
+                OnPropertyChanged(nameof(UpperColor));
+            }
+        }
+    }
+
+    [Category("Configuration")]
+    [Description("The color assigned when the value is < Threshold.")]
+    public WinColor LowerColor
+    {
+        get => _lowerColor;
+        set
+        {
+            if (_lowerColor != value)
+            {
+                _lowerColor = value;
+                OnPropertyChanged(nameof(LowerColor));
             }
         }
     }
@@ -324,8 +342,11 @@ public class GaussianBlurBlock : IBlock
             int h = img.Height;
 
             Rectangle region = GetProcessRegion(w, h);
-            if (Sigma > 0.0f)
-                sourceItem.Image.Mutate(x => x.GaussianBlur(Sigma, region, BorderWrappingModeX, BorderWrappingModeY));
+
+            var sharpUpperColor = SharpColor.FromRgba(_upperColor.R, _upperColor.G, _upperColor.B, _upperColor.A);
+            var sharpLowerColor = SharpColor.FromRgba(_lowerColor.R, _lowerColor.G, _lowerColor.B, _lowerColor.A);
+            sourceItem.Image.Mutate(x => x.BinaryThreshold(Threshold, sharpUpperColor, sharpLowerColor, MappingToBinaryThresholdMode(Mode), region));
+
             outputItems.Add(sourceItem);
         }
 
@@ -334,6 +355,15 @@ public class GaussianBlurBlock : IBlock
                 { _outputs[0], outputItems }
             };
     }
+
+    public static BinaryThresholdMode MappingToBinaryThresholdMode(BinaryThresholdOption mode) =>
+        mode switch
+        {
+            BinaryThresholdOption.Luminance => BinaryThresholdMode.Luminance,
+            BinaryThresholdOption.Saturation => BinaryThresholdMode.Saturation,
+            BinaryThresholdOption.MaxChroma => BinaryThresholdMode.MaxChroma,
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), $"Not expected mode value: {mode}"),
+        };
     private Rectangle GetProcessRegion(int sourceWidth, int sourceHeight)
     {
         int x, y, w, h;

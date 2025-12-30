@@ -1,29 +1,23 @@
-using System.ComponentModel;
-using System.ComponentModel;
-
-using ImageAutomate.Core;
-
+﻿using ImageAutomate.Core;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.Processing.Processors.Convolution;
-using SixLabors.ImageSharp.Processing;
+using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
-
-public class GaussianBlurBlock : IBlock
+public class BokehBlurBlock : IBlock
 {
     #region Fields
 
-    private readonly IReadOnlyList<Socket> _inputs = [new("GaussianBlur.In", "Image.In")];
-    private readonly IReadOnlyList<Socket> _outputs = [new("GaussianBlur.Out", "Image.Out")];
+    private readonly IReadOnlyList<Socket> _inputs = [new("BokehBlur.In", "Image.In")];
+    private readonly IReadOnlyList<Socket> _outputs = [new("BokehBlur.Out", "Image.Out")];
 
     private bool _disposed;
 
-    private float _sigma = 1.0f;
-
-    private BorderWrappingMode _borderWrapModeX = BorderWrappingMode.Wrap;
-    private BorderWrappingMode _borderWrapModeY = BorderWrappingMode.Wrap;
+    // Configuration fields
+    private int _radius = 32;       // Size of the blur
+    private int _components = 6;    // Number of aperture blades (e.g., 6 = Hexagon)
+    private float _gamma = 3.0f;    // Highlight intensity
 
     private bool _isRelative = true;
     private float _rectX = 0.0f;
@@ -36,16 +30,16 @@ public class GaussianBlurBlock : IBlock
     private double _y;
     private int _width;
     private int _height;
-    private string _title = "Gaussian Blur";
+    private string _title = "Bokeh Blur";
 
     #endregion
 
-    public GaussianBlurBlock()
-        : this(200, 100)
+    public BokehBlurBlock()
+        : this(220, 140) // Taller to accommodate 3 properties in UI if needed
     {
     }
 
-    public GaussianBlurBlock(int width, int height)
+    public BokehBlurBlock(int width, int height)
     {
         _width = width;
         _height = height;
@@ -54,7 +48,7 @@ public class GaussianBlurBlock : IBlock
     #region IBlock basic
 
     [Browsable(false)]
-    public string Name => "GaussianBlur";
+    public string Name => "BokehBlur";
 
     [Category("Title")]
     public string Title
@@ -71,7 +65,7 @@ public class GaussianBlurBlock : IBlock
     }
 
     [Browsable(false)]
-    public string Content => $"Sigma: {Sigma}\nBorderModeX: {BorderWrappingModeX}\nBorderModeY: {BorderWrappingModeY}";
+    public string Content => $"R:{Radius}\nC:{Components}\nG:{Gamma:F1}";
 
     #endregion
 
@@ -151,51 +145,56 @@ public class GaussianBlurBlock : IBlock
     #region Configuration
 
     [Category("Configuration")]
-    [Description("Blur intensity (sigma). Recommended range: 0.5–25.0. 0.0 = no blur.")]
-    public float Sigma
+    [Description("The radius of the blur kernel.")]
+    public int Radius
     {
-        get => _sigma;
+        get => _radius;
         set
         {
-            var clamped = Math.Clamp(value, 0.0f, 25.0f);
-            if (Math.Abs(_sigma - clamped) > float.Epsilon)
+            // Radius must be >= 1 for Bokeh
+            var clamped = Math.Max(value, 1);
+            if (_radius != clamped)
             {
-                _sigma = clamped;
-                OnPropertyChanged(nameof(Sigma));
+                _radius = clamped;
+                OnPropertyChanged(nameof(Radius));
+                OnPropertyChanged(nameof(Content));
             }
         }
     }
 
     [Category("Configuration")]
-    [Description("Determines how horizontal borders are handled during the blur operation.")]
-    public BorderWrappingMode BorderWrappingModeX
+    [Description("The number of components (aperture blades). E.g., 6 for hexagonal bokeh.")]
+    public int Components
     {
-        get => _borderWrapModeX;
+        get => _components;
         set
         {
-            if (_borderWrapModeX != value)
+            var clamped = Math.Max(value, 1);
+            if (_components != clamped)
             {
-                _borderWrapModeX = value;
-                OnPropertyChanged(nameof(BorderWrappingModeX));
-            }    
-        }
-    }
-
-    [Category("Configuration")]
-    [Description("Determines how horizontal borders are handled during the blur operation.")]
-    public BorderWrappingMode BorderWrappingModeY
-    {
-        get => _borderWrapModeY;
-        set
-        {
-            if (_borderWrapModeY != value)
-            {
-                _borderWrapModeY = value;
-                OnPropertyChanged(nameof(BorderWrappingModeY));
+                _components = clamped;
+                OnPropertyChanged(nameof(Components));
+                OnPropertyChanged(nameof(Content));
             }
         }
     }
 
+    [Category("Configuration")]
+    [Description("The gamma strength (highlight intensity).")]
+    public float Gamma
+    {
+        get => _gamma;
+        set
+        {
+            // Prevent negative or zero gamma
+            var clamped = Math.Max(value, 0.1f);
+            if (Math.Abs(_gamma - clamped) > float.Epsilon)
+            {
+                _gamma = clamped;
+                OnPropertyChanged(nameof(Gamma));
+            }
+        }
+    }
     [Category("Region Configuration")]
     [Description("If true, values are percentages (0.0-1.0). If false, values are pixels.")]
     public bool IsRelative
@@ -324,8 +323,11 @@ public class GaussianBlurBlock : IBlock
             int h = img.Height;
 
             Rectangle region = GetProcessRegion(w, h);
-            if (Sigma > 0.0f)
-                sourceItem.Image.Mutate(x => x.GaussianBlur(Sigma, region, BorderWrappingModeX, BorderWrappingModeY));
+            if (Radius > 0)
+            {
+                sourceItem.Image.Mutate(x => x.BokehBlur(Radius, Components, Gamma, region));
+            }
+
             outputItems.Add(sourceItem);
         }
 

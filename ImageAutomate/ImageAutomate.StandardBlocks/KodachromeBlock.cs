@@ -1,29 +1,18 @@
-using System.ComponentModel;
-using System.ComponentModel;
-
-using ImageAutomate.Core;
-
+﻿using ImageAutomate.Core;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.Processing.Processors.Convolution;
-using SixLabors.ImageSharp.Processing;
+using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
-
-public class GaussianBlurBlock : IBlock
+public class KodachromeBlock : IBlock
 {
     #region Fields
 
-    private readonly IReadOnlyList<Socket> _inputs = [new("GaussianBlur.In", "Image.In")];
-    private readonly IReadOnlyList<Socket> _outputs = [new("GaussianBlur.Out", "Image.Out")];
+    private readonly IReadOnlyList<Socket> _inputs = [new("Kodachrome.In", "Image.In")];
+    private readonly IReadOnlyList<Socket> _outputs = [new("Kodachrome.Out", "Image.Out")];
 
     private bool _disposed;
-
-    private float _sigma = 1.0f;
-
-    private BorderWrappingMode _borderWrapModeX = BorderWrappingMode.Wrap;
-    private BorderWrappingMode _borderWrapModeY = BorderWrappingMode.Wrap;
 
     private bool _isRelative = true;
     private float _rectX = 0.0f;
@@ -36,16 +25,16 @@ public class GaussianBlurBlock : IBlock
     private double _y;
     private int _width;
     private int _height;
-    private string _title = "Gaussian Blur";
+    private string _title = "Kodachrome";
 
     #endregion
 
-    public GaussianBlurBlock()
-        : this(200, 100)
+    public KodachromeBlock()
+        : this(200, 100) 
     {
     }
 
-    public GaussianBlurBlock(int width, int height)
+    public KodachromeBlock(int width, int height)
     {
         _width = width;
         _height = height;
@@ -54,7 +43,7 @@ public class GaussianBlurBlock : IBlock
     #region IBlock basic
 
     [Browsable(false)]
-    public string Name => "GaussianBlur";
+    public string Name => "Kodachrome";
 
     [Category("Title")]
     public string Title
@@ -71,7 +60,7 @@ public class GaussianBlurBlock : IBlock
     }
 
     [Browsable(false)]
-    public string Content => $"Sigma: {Sigma}\nBorderModeX: {BorderWrappingModeX}\nBorderModeY: {BorderWrappingModeY}";
+    public string Content => "Applied";
 
     #endregion
 
@@ -139,63 +128,7 @@ public class GaussianBlurBlock : IBlock
 
     #endregion
 
-    #region Sockets
-
-    [Browsable(false)]
-    public IReadOnlyList<Socket> Inputs => _inputs;
-    [Browsable(false)]
-    public IReadOnlyList<Socket> Outputs => _outputs;
-
-    #endregion
-
     #region Configuration
-
-    [Category("Configuration")]
-    [Description("Blur intensity (sigma). Recommended range: 0.5–25.0. 0.0 = no blur.")]
-    public float Sigma
-    {
-        get => _sigma;
-        set
-        {
-            var clamped = Math.Clamp(value, 0.0f, 25.0f);
-            if (Math.Abs(_sigma - clamped) > float.Epsilon)
-            {
-                _sigma = clamped;
-                OnPropertyChanged(nameof(Sigma));
-            }
-        }
-    }
-
-    [Category("Configuration")]
-    [Description("Determines how horizontal borders are handled during the blur operation.")]
-    public BorderWrappingMode BorderWrappingModeX
-    {
-        get => _borderWrapModeX;
-        set
-        {
-            if (_borderWrapModeX != value)
-            {
-                _borderWrapModeX = value;
-                OnPropertyChanged(nameof(BorderWrappingModeX));
-            }    
-        }
-    }
-
-    [Category("Configuration")]
-    [Description("Determines how horizontal borders are handled during the blur operation.")]
-    public BorderWrappingMode BorderWrappingModeY
-    {
-        get => _borderWrapModeY;
-        set
-        {
-            if (_borderWrapModeY != value)
-            {
-                _borderWrapModeY = value;
-                OnPropertyChanged(nameof(BorderWrappingModeY));
-            }
-        }
-    }
-
     [Category("Region Configuration")]
     [Description("If true, values are percentages (0.0-1.0). If false, values are pixels.")]
     public bool IsRelative
@@ -278,6 +211,15 @@ public class GaussianBlurBlock : IBlock
     }
     #endregion
 
+    #region Sockets
+
+    [Browsable(false)]
+    public IReadOnlyList<Socket> Inputs => _inputs;
+    [Browsable(false)]
+    public IReadOnlyList<Socket> Outputs => _outputs;
+
+    #endregion
+
     #region INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -324,8 +266,8 @@ public class GaussianBlurBlock : IBlock
             int h = img.Height;
 
             Rectangle region = GetProcessRegion(w, h);
-            if (Sigma > 0.0f)
-                sourceItem.Image.Mutate(x => x.GaussianBlur(Sigma, region, BorderWrappingModeX, BorderWrappingModeY));
+            sourceItem.Image.Mutate(x => x.Kodachrome(region));
+
             outputItems.Add(sourceItem);
         }
 
@@ -357,6 +299,7 @@ public class GaussianBlurBlock : IBlock
         rect.Intersect(new Rectangle(0, 0, sourceWidth, sourceHeight));
         return rect;
     }
+
     #endregion
 
     #region IDisposable

@@ -1,29 +1,23 @@
-using System.ComponentModel;
-using System.ComponentModel;
-
-using ImageAutomate.Core;
-
+﻿using ImageAutomate.Core;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.Processing.Processors.Convolution;
-using SixLabors.ImageSharp.Processing;
+using System.ComponentModel;
+using WinColor = System.Drawing.Color;
+using SharpColor = SixLabors.ImageSharp.Color;
 
 namespace ImageAutomate.StandardBlocks;
 
-
-public class GaussianBlurBlock : IBlock
+public class BackgroundColorBlock : IBlock
 {
     #region Fields
 
-    private readonly IReadOnlyList<Socket> _inputs = [new("GaussianBlur.In", "Image.In")];
-    private readonly IReadOnlyList<Socket> _outputs = [new("GaussianBlur.Out", "Image.Out")];
+    private readonly IReadOnlyList<Socket> _inputs = [new("BackgroundColor.In", "Image.In")];
+    private readonly IReadOnlyList<Socket> _outputs = [new("BackgroundColor.Out", "Image.Out")];
 
     private bool _disposed;
 
-    private float _sigma = 1.0f;
-
-    private BorderWrappingMode _borderWrapModeX = BorderWrappingMode.Wrap;
-    private BorderWrappingMode _borderWrapModeY = BorderWrappingMode.Wrap;
+    // Configuration fields
+    private WinColor _color = WinColor.White; // Default to White
 
     private bool _isRelative = true;
     private float _rectX = 0.0f;
@@ -36,16 +30,16 @@ public class GaussianBlurBlock : IBlock
     private double _y;
     private int _width;
     private int _height;
-    private string _title = "Gaussian Blur";
+    private string _title = "Background Color";
 
     #endregion
 
-    public GaussianBlurBlock()
+    public BackgroundColorBlock()
         : this(200, 100)
     {
     }
 
-    public GaussianBlurBlock(int width, int height)
+    public BackgroundColorBlock(int width, int height)
     {
         _width = width;
         _height = height;
@@ -54,7 +48,7 @@ public class GaussianBlurBlock : IBlock
     #region IBlock basic
 
     [Browsable(false)]
-    public string Name => "GaussianBlur";
+    public string Name => "BackgroundColor";
 
     [Category("Title")]
     public string Title
@@ -71,7 +65,7 @@ public class GaussianBlurBlock : IBlock
     }
 
     [Browsable(false)]
-    public string Content => $"Sigma: {Sigma}\nBorderModeX: {BorderWrappingModeX}\nBorderModeY: {BorderWrappingModeY}";
+    public string Content => $"Color: {Color}";
 
     #endregion
 
@@ -151,51 +145,19 @@ public class GaussianBlurBlock : IBlock
     #region Configuration
 
     [Category("Configuration")]
-    [Description("Blur intensity (sigma). Recommended range: 0.5–25.0. 0.0 = no blur.")]
-    public float Sigma
+    [Description("The color to apply to the background (transparent areas).")]
+    public WinColor Color
     {
-        get => _sigma;
+        get => _color;
         set
         {
-            var clamped = Math.Clamp(value, 0.0f, 25.0f);
-            if (Math.Abs(_sigma - clamped) > float.Epsilon)
+            if (_color != value)
             {
-                _sigma = clamped;
-                OnPropertyChanged(nameof(Sigma));
+                _color = value;
+                OnPropertyChanged(nameof(Color));
             }
         }
     }
-
-    [Category("Configuration")]
-    [Description("Determines how horizontal borders are handled during the blur operation.")]
-    public BorderWrappingMode BorderWrappingModeX
-    {
-        get => _borderWrapModeX;
-        set
-        {
-            if (_borderWrapModeX != value)
-            {
-                _borderWrapModeX = value;
-                OnPropertyChanged(nameof(BorderWrappingModeX));
-            }    
-        }
-    }
-
-    [Category("Configuration")]
-    [Description("Determines how horizontal borders are handled during the blur operation.")]
-    public BorderWrappingMode BorderWrappingModeY
-    {
-        get => _borderWrapModeY;
-        set
-        {
-            if (_borderWrapModeY != value)
-            {
-                _borderWrapModeY = value;
-                OnPropertyChanged(nameof(BorderWrappingModeY));
-            }
-        }
-    }
-
     [Category("Region Configuration")]
     [Description("If true, values are percentages (0.0-1.0). If false, values are pixels.")]
     public bool IsRelative
@@ -324,8 +286,10 @@ public class GaussianBlurBlock : IBlock
             int h = img.Height;
 
             Rectangle region = GetProcessRegion(w, h);
-            if (Sigma > 0.0f)
-                sourceItem.Image.Mutate(x => x.GaussianBlur(Sigma, region, BorderWrappingModeX, BorderWrappingModeY));
+
+            var sharpColor = SharpColor.FromRgba(_color.R, _color.G, _color.B, _color.A);
+            sourceItem.Image.Mutate(x => x.BackgroundColor(sharpColor, region));
+
             outputItems.Add(sourceItem);
         }
 

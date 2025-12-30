@@ -1,29 +1,23 @@
-using System.ComponentModel;
-using System.ComponentModel;
-
-using ImageAutomate.Core;
-
+﻿using ImageAutomate.Core;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.Processing.Processors.Convolution;
-using SixLabors.ImageSharp.Processing;
+using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
-
-public class GaussianBlurBlock : IBlock
+public class MedianBlurBlock : IBlock
 {
     #region Fields
 
-    private readonly IReadOnlyList<Socket> _inputs = [new("GaussianBlur.In", "Image.In")];
-    private readonly IReadOnlyList<Socket> _outputs = [new("GaussianBlur.Out", "Image.Out")];
+    private readonly IReadOnlyList<Socket> _inputs = [new("Median.In", "Image.In")];
+    private readonly IReadOnlyList<Socket> _outputs = [new("Median.Out", "Image.Out")];
 
     private bool _disposed;
 
-    private float _sigma = 1.0f;
-
-    private BorderWrappingMode _borderWrapModeX = BorderWrappingMode.Wrap;
-    private BorderWrappingMode _borderWrapModeY = BorderWrappingMode.Wrap;
+    // Configuration fields
+    private int _radius = 1;
+    private bool _preserveAlpha = false;
 
     private bool _isRelative = true;
     private float _rectX = 0.0f;
@@ -36,16 +30,16 @@ public class GaussianBlurBlock : IBlock
     private double _y;
     private int _width;
     private int _height;
-    private string _title = "Gaussian Blur";
+    private string _title = "Median Blur";
 
     #endregion
 
-    public GaussianBlurBlock()
+    public MedianBlurBlock()
         : this(200, 100)
     {
     }
 
-    public GaussianBlurBlock(int width, int height)
+    public MedianBlurBlock(int width, int height)
     {
         _width = width;
         _height = height;
@@ -54,7 +48,7 @@ public class GaussianBlurBlock : IBlock
     #region IBlock basic
 
     [Browsable(false)]
-    public string Name => "GaussianBlur";
+    public string Name => "MedianBlur";
 
     [Category("Title")]
     public string Title
@@ -71,7 +65,7 @@ public class GaussianBlurBlock : IBlock
     }
 
     [Browsable(false)]
-    public string Content => $"Sigma: {Sigma}\nBorderModeX: {BorderWrappingModeX}\nBorderModeY: {BorderWrappingModeY}";
+    public string Content => $"Radius: {Radius}, Alpha: {PreserveAlpha}";
 
     #endregion
 
@@ -151,51 +145,35 @@ public class GaussianBlurBlock : IBlock
     #region Configuration
 
     [Category("Configuration")]
-    [Description("Blur intensity (sigma). Recommended range: 0.5–25.0. 0.0 = no blur.")]
-    public float Sigma
+    [Description("The radius of the median blur operation. Higher values reduce noise but blur details.")]
+    public int Radius
     {
-        get => _sigma;
+        get => _radius;
         set
         {
-            var clamped = Math.Clamp(value, 0.0f, 25.0f);
-            if (Math.Abs(_sigma - clamped) > float.Epsilon)
+            var clamped = Math.Max(value, 1);
+            if (_radius != clamped)
             {
-                _sigma = clamped;
-                OnPropertyChanged(nameof(Sigma));
+                _radius = clamped;
+                OnPropertyChanged(nameof(Radius));
             }
         }
     }
 
     [Category("Configuration")]
-    [Description("Determines how horizontal borders are handled during the blur operation.")]
-    public BorderWrappingMode BorderWrappingModeX
+    [Description("If true, the alpha channel will not be blurred, preserving the original transparency edges.")]
+    public bool PreserveAlpha
     {
-        get => _borderWrapModeX;
+        get => _preserveAlpha;
         set
         {
-            if (_borderWrapModeX != value)
+            if (_preserveAlpha != value)
             {
-                _borderWrapModeX = value;
-                OnPropertyChanged(nameof(BorderWrappingModeX));
-            }    
-        }
-    }
-
-    [Category("Configuration")]
-    [Description("Determines how horizontal borders are handled during the blur operation.")]
-    public BorderWrappingMode BorderWrappingModeY
-    {
-        get => _borderWrapModeY;
-        set
-        {
-            if (_borderWrapModeY != value)
-            {
-                _borderWrapModeY = value;
-                OnPropertyChanged(nameof(BorderWrappingModeY));
+                _preserveAlpha = value;
+                OnPropertyChanged(nameof(PreserveAlpha));
             }
         }
     }
-
     [Category("Region Configuration")]
     [Description("If true, values are percentages (0.0-1.0). If false, values are pixels.")]
     public bool IsRelative
@@ -324,8 +302,11 @@ public class GaussianBlurBlock : IBlock
             int h = img.Height;
 
             Rectangle region = GetProcessRegion(w, h);
-            if (Sigma > 0.0f)
-                sourceItem.Image.Mutate(x => x.GaussianBlur(Sigma, region, BorderWrappingModeX, BorderWrappingModeY));
+            if (Radius > 0)
+            {
+                sourceItem.Image.Mutate(x => x.MedianBlur(Radius, PreserveAlpha, region));
+                
+            }
             outputItems.Add(sourceItem);
         }
 

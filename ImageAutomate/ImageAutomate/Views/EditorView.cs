@@ -33,6 +33,12 @@ public partial class EditorView : UserControl
             typeof(CropBlock),
             typeof(ResizeBlock),
             typeof(FlipBlock),
+            typeof(RotateBlock),
+            typeof(RotateFlipBlock),
+            typeof(SkewBlock),
+            typeof(AutoOrientBlock),
+            typeof(EntropyCropBlock),
+            typeof(SwizzleBlock),
             typeof(GrayscaleBlock),
             typeof(BrightnessBlock),
             typeof(ContrastBlock),
@@ -41,7 +47,24 @@ public partial class EditorView : UserControl
             typeof(GaussianBlurBlock),
             typeof(SharpenBlock),
             typeof(PixelateBlock),
-            typeof(VignetteBlock)
+            typeof(VignetteBlock),
+            typeof(BlackWhiteBlock),
+            typeof(InvertBlock),
+            typeof(SepiaBlock),
+            typeof(PolaroidBlock),
+            typeof(KodachromeBlock),
+            typeof(LomographBlock),
+            typeof(OilPaintBlock),
+            typeof(GlowBlock),
+            typeof(BoxBlurBlock),
+            typeof(BokehBlurBlock),
+            typeof(MedianBlurBlock),
+            typeof(OpacityBlock),
+            typeof(BinaryThresholdBlock),
+            typeof(AdaptiveThresholdBlock),
+            typeof(DitherBlock),
+            typeof(BackgroundColorBlock),
+            typeof(HistogramEqualizationBlock)
         });
     }
 

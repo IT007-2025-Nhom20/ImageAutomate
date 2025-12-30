@@ -52,12 +52,20 @@ public class ResizeBlock : IBlock
     private ResizeResampler _resampler = ResizeResampler.Bicubic;
     private Color _paddingColor = Color.Black;
 
+    private bool _isRelative = false;
+    private double _scaleFactor = 1;
+
+    private AnchorPositionOption _anchorPosition = AnchorPositionOption.Center;
+    private bool _compand;
+    private bool _premultiplyAlpha = true;
     // Layout fields
     private double _x;
     private double _y;
     private int _width;
     private int _height;
     private string _title = "Resize";
+
+
 
     #endregion
 
@@ -95,7 +103,18 @@ public class ResizeBlock : IBlock
 
     /// <inheritdoc />
     [Browsable(false)]
-    public string Content => $"Size: {TargetWidth}x{TargetHeight}\nMode: {ResizeMode}";
+    public string Content
+    {
+        get
+        {
+            if (_isRelative)
+            {
+                return $"Scale: {ScaleFactor}x\nMode: {ResizeMode}";
+            }
+            return $"Size: {TargetWidth}x{TargetHeight}\nMode: {ResizeMode}";
+        }
+
+    }
 
     #endregion
 
@@ -289,7 +308,88 @@ public class ResizeBlock : IBlock
             }
         }
     }
+    [Category("Configuration")]
+    [Description("If true, resizes based on ScaleFactor relative to input size.")]
+    public bool IsRelative
+    {
+        get => _isRelative;
+        set
+        {
+            if (_isRelative != value)
+            {
+                _isRelative = value;
+                OnPropertyChanged(nameof(IsRelative));
+            }
+        }
+    }
+    [Category("Configuration")]
+    [Description("If true, resizes based on ScaleFactor relative to input size.")]
+    public double ScaleFactor
+    {
+        get => _scaleFactor;
+        set
+        {
+            if (_scaleFactor != value)
+            {
+                _scaleFactor = value;
+                OnPropertyChanged(nameof(ScaleFactor));
+            }
+        }
+    }
 
+    /// <summary>
+    /// Gets or sets the anchor position.
+    /// </summary>
+    [Category("Configuration")]
+    [Description("Anchor position (used in Pad, Crop, etc.).")]
+    public AnchorPositionOption AnchorPosition
+    {
+        get => _anchorPosition;
+        set
+        {
+            if (_anchorPosition != value)
+            {
+                _anchorPosition = value;
+                OnPropertyChanged(nameof(AnchorPosition));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets whether to compress and expand color (gamma correction) during processing.
+    /// </summary>
+    [Category("Configuration")]
+    [Description("If true, performs operation in linear color space (Compand).")]
+    public bool Compand
+    {
+        get => _compand;
+        set
+        {
+            if (_compand != value)
+            {
+                _compand = value;
+                OnPropertyChanged(nameof(Compand));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets whether to premultiply alpha.
+    /// </summary>
+    [Category("Configuration")]
+    [Description("If true, premultiplies alpha component during processing.")]
+    public bool PremultiplyAlpha
+    {
+        get => _premultiplyAlpha;
+        set
+        {
+            if (_premultiplyAlpha != value)
+            {
+                _premultiplyAlpha = value;
+                OnPropertyChanged(nameof(PremultiplyAlpha));
+            }
+        }
+    }
     #endregion
 
     #region INotifyPropertyChanged
@@ -358,7 +458,7 @@ public class ResizeBlock : IBlock
             throw new InvalidOperationException("ResizeBlock: Source image has invalid dimensions.");
 
         // validate target dims
-        if (!TargetWidth.HasValue && !TargetHeight.HasValue)
+        if (!IsRelative && !TargetWidth.HasValue && !TargetHeight.HasValue)
             throw new InvalidOperationException("ResizeBlock: At least one of TargetWidth or TargetHeight must be specified.");
 
         var sampler = MapResampler(Resampler);
@@ -371,8 +471,9 @@ public class ResizeBlock : IBlock
             Size = targetSize,
             Mode = mode,
             Sampler = sampler,
-            PremultiplyAlpha = true,
-            Position = AnchorPositionMode.Center
+            PremultiplyAlpha = PremultiplyAlpha,
+            Compand = Compand,
+            Position = MapAnchorPosition(AnchorPosition)
         };
 
         if (_resizeMode == ResizeModeOption.Pad)
@@ -385,8 +486,22 @@ public class ResizeBlock : IBlock
 
     private SixLabors.ImageSharp.Size ComputeTargetSize(int srcWidth, int srcHeight)
     {
-        int tw = TargetWidth ?? 0;
-        int th = TargetHeight ?? 0;
+        int tw, th;
+
+        if (IsRelative)
+        {
+            tw = (int)Math.Round(srcWidth * ScaleFactor);
+            th = (int)Math.Round(srcHeight * ScaleFactor);
+
+            // Ensure at least 1x1
+            tw = Math.Max(1, tw);
+            th = Math.Max(1, th);
+        }
+        else
+        {
+            tw = TargetWidth ?? 0;
+            th = TargetHeight ?? 0;
+        }
 
         switch (_resizeMode)
         {
@@ -496,7 +611,22 @@ public class ResizeBlock : IBlock
             _ => SixLabors.ImageSharp.Processing.ResizeMode.Max
         };
     }
-
+    static private AnchorPositionMode MapAnchorPosition(AnchorPositionOption position)
+    {
+        return position switch
+        {
+            AnchorPositionOption.TopLeft => AnchorPositionMode.TopLeft,
+            AnchorPositionOption.Top => AnchorPositionMode.Top,
+            AnchorPositionOption.TopRight => AnchorPositionMode.TopRight,
+            AnchorPositionOption.Left => AnchorPositionMode.Left,
+            AnchorPositionOption.Center => AnchorPositionMode.Center,
+            AnchorPositionOption.Right => AnchorPositionMode.Right,
+            AnchorPositionOption.BottomLeft => AnchorPositionMode.BottomLeft,
+            AnchorPositionOption.Bottom => AnchorPositionMode.Bottom,
+            AnchorPositionOption.BottomRight => AnchorPositionMode.BottomRight,
+            _ => AnchorPositionMode.Center
+        };
+    }
     #endregion
 
     #region IDisposable

@@ -1,29 +1,22 @@
-using System.ComponentModel;
-using System.ComponentModel;
-
-using ImageAutomate.Core;
-
+﻿using ImageAutomate.Core;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.Processing.Processors.Convolution;
-using SixLabors.ImageSharp.Processing;
+using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
-
-public class GaussianBlurBlock : IBlock
+public class OilPaintBlock : IBlock
 {
     #region Fields
 
-    private readonly IReadOnlyList<Socket> _inputs = [new("GaussianBlur.In", "Image.In")];
-    private readonly IReadOnlyList<Socket> _outputs = [new("GaussianBlur.Out", "Image.Out")];
+    private readonly IReadOnlyList<Socket> _inputs = [new("OilPaint.In", "Image.In")];
+    private readonly IReadOnlyList<Socket> _outputs = [new("OilPaint.Out", "Image.Out")];
 
     private bool _disposed;
 
-    private float _sigma = 1.0f;
-
-    private BorderWrappingMode _borderWrapModeX = BorderWrappingMode.Wrap;
-    private BorderWrappingMode _borderWrapModeY = BorderWrappingMode.Wrap;
+    // Configuration fields
+    private int _level = 10;
+    private int _brushSize = 15;
 
     private bool _isRelative = true;
     private float _rectX = 0.0f;
@@ -36,16 +29,16 @@ public class GaussianBlurBlock : IBlock
     private double _y;
     private int _width;
     private int _height;
-    private string _title = "Gaussian Blur";
+    private string _title = "Oil Paint";
 
     #endregion
 
-    public GaussianBlurBlock()
+    public OilPaintBlock()
         : this(200, 100)
     {
     }
 
-    public GaussianBlurBlock(int width, int height)
+    public OilPaintBlock(int width, int height)
     {
         _width = width;
         _height = height;
@@ -54,7 +47,7 @@ public class GaussianBlurBlock : IBlock
     #region IBlock basic
 
     [Browsable(false)]
-    public string Name => "GaussianBlur";
+    public string Name => "OilPaint";
 
     [Category("Title")]
     public string Title
@@ -71,7 +64,7 @@ public class GaussianBlurBlock : IBlock
     }
 
     [Browsable(false)]
-    public string Content => $"Sigma: {Sigma}\nBorderModeX: {BorderWrappingModeX}\nBorderModeY: {BorderWrappingModeY}";
+    public string Content => $"Level: {Level}, Brush: {BrushSize}";
 
     #endregion
 
@@ -151,51 +144,38 @@ public class GaussianBlurBlock : IBlock
     #region Configuration
 
     [Category("Configuration")]
-    [Description("Blur intensity (sigma). Recommended range: 0.5–25.0. 0.0 = no blur.")]
-    public float Sigma
+    [Description("The number of intensity levels. Higher values result in more color detail.")]
+    public int Level
     {
-        get => _sigma;
+        get => _level;
         set
         {
-            var clamped = Math.Clamp(value, 0.0f, 25.0f);
-            if (Math.Abs(_sigma - clamped) > float.Epsilon)
+            // Ensure level is at least 1
+            var clamped = Math.Max(value, 1);
+            if (_level != clamped)
             {
-                _sigma = clamped;
-                OnPropertyChanged(nameof(Sigma));
+                _level = clamped;
+                OnPropertyChanged(nameof(Level));
             }
         }
     }
 
     [Category("Configuration")]
-    [Description("Determines how horizontal borders are handled during the blur operation.")]
-    public BorderWrappingMode BorderWrappingModeX
+    [Description("The size of the brush (neighbor window). Larger brushes create a more abstract, painting-like effect.")]
+    public int BrushSize
     {
-        get => _borderWrapModeX;
+        get => _brushSize;
         set
         {
-            if (_borderWrapModeX != value)
+            // Ensure brush size is at least 1
+            var clamped = Math.Max(value, 1);
+            if (_brushSize != clamped)
             {
-                _borderWrapModeX = value;
-                OnPropertyChanged(nameof(BorderWrappingModeX));
-            }    
-        }
-    }
-
-    [Category("Configuration")]
-    [Description("Determines how horizontal borders are handled during the blur operation.")]
-    public BorderWrappingMode BorderWrappingModeY
-    {
-        get => _borderWrapModeY;
-        set
-        {
-            if (_borderWrapModeY != value)
-            {
-                _borderWrapModeY = value;
-                OnPropertyChanged(nameof(BorderWrappingModeY));
+                _brushSize = clamped;
+                OnPropertyChanged(nameof(BrushSize));
             }
         }
     }
-
     [Category("Region Configuration")]
     [Description("If true, values are percentages (0.0-1.0). If false, values are pixels.")]
     public bool IsRelative
@@ -324,8 +304,11 @@ public class GaussianBlurBlock : IBlock
             int h = img.Height;
 
             Rectangle region = GetProcessRegion(w, h);
-            if (Sigma > 0.0f)
-                sourceItem.Image.Mutate(x => x.GaussianBlur(Sigma, region, BorderWrappingModeX, BorderWrappingModeY));
+            if (BrushSize > 0 && Level > 0)
+            {
+                sourceItem.Image.Mutate(x => x.OilPaint(Level, BrushSize, region));
+            }
+
             outputItems.Add(sourceItem);
         }
 

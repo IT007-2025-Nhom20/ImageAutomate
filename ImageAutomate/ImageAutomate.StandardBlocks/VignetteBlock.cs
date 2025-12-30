@@ -16,6 +16,15 @@ public class VignetteBlock : IBlock
 
     private Color _color = Color.Black;
     private float _strength = 0.6f;
+    private float _radiusX = 1;
+    private float _radiusY = 1;
+
+    private bool _isRelative = true;
+    private float _rectX = 0.0f;
+    private float _rectY = 0.0f;
+    private float _rectWidth = 1.0f;
+    private float _rectHeight = 1.0f;
+
     private bool _disposed;
 
     // Layout fields
@@ -24,6 +33,7 @@ public class VignetteBlock : IBlock
     private int _width;
     private int _height;
     private string _title = "Vignette";
+
 
     #endregion
 
@@ -167,6 +177,116 @@ public class VignetteBlock : IBlock
             }
         }
     }
+    [Category("Configuration")]
+    [Description("Horizontal radius (pixels). Leave empty (null) to automatically use the image width.")]
+    public float RadiusX
+    {
+        get => _radiusX;
+        set
+        {
+            if (_radiusX != value)
+            {
+                _radiusX = value;
+                OnPropertyChanged(nameof(RadiusX));
+            }
+        }
+    }
+
+    [Category("Configuration")]
+    [Description("Vertical radius (pixels). Leave empty (null) to automatically use the image height.")]
+    public float RadiusY
+    {
+        get => _radiusY;
+        set
+        {
+            if (_radiusY != value)
+            {
+                _radiusY = value;
+                OnPropertyChanged(nameof(RadiusY));
+            }
+        }
+    }
+
+    [Category("Region Configuration")]
+    [Description("If true, values are percentages (0.0-1.0). If false, values are pixels.")]
+    public bool IsRelative
+    {
+        get => _isRelative;
+        set
+        {
+            if (_isRelative != value)
+            {
+                _isRelative = value;
+                OnPropertyChanged(nameof(IsRelative));
+            }
+        }
+    }
+
+    [Category("Region Configuration")]
+    [Description("X coordinate of the top-left corner.")]
+    public float RectX
+    {
+        get => _rectX;
+        set
+        {
+            if (Math.Abs(_rectX - value) > float.Epsilon)
+            {
+                _rectX = value;
+                OnPropertyChanged(nameof(RectX));
+            }
+        }
+    }
+
+    [Category("Region Configuration")]
+    [Description("Y coordinate of the top-left corner.")]
+    public float RectY
+    {
+        get => _rectY;
+        set
+        {
+            if (Math.Abs(_rectY - value) > float.Epsilon)
+            {
+                _rectY = value;
+                OnPropertyChanged(nameof(RectY));
+            }
+        }
+    }
+
+    [Category("Region Configuration")]
+    [Description("Width of the region.")]
+    public float RectWidth
+    {
+        get => _rectWidth;
+        set
+        {
+            // Đảm bảo chiều rộng không âm
+            if (value < 0) value = 0;
+
+            if (Math.Abs(_rectWidth - value) > float.Epsilon)
+            {
+                _rectWidth = value;
+                OnPropertyChanged(nameof(RectWidth));
+            }
+        }
+    }
+
+    [Category("Region Configuration")]
+    [Description("Height of the region.")]
+    public float RectHeight
+    {
+        get => _rectHeight;
+        set
+        {
+            // Đảm bảo chiều cao không âm
+            if (value < 0) value = 0;
+
+            if (Math.Abs(_rectHeight - value) > float.Epsilon)
+            {
+                _rectHeight = value;
+                OnPropertyChanged(nameof(RectHeight));
+            }
+        }
+    }
 
     #endregion
 
@@ -211,6 +331,11 @@ public class VignetteBlock : IBlock
         foreach (var sourceItem in inItems.OfType<WorkItem>())
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var img = sourceItem.Image;
+            int w = img.Width;
+            int h = img.Height;
+
+            Rectangle region = GetProcessRegion(w, h);
             if (_strength > 0f)
             {
                 sourceItem.Image.Mutate(
@@ -219,7 +344,10 @@ public class VignetteBlock : IBlock
                         {
                             BlendPercentage = _strength
                         },
-                        _color
+                        _color,
+                        RadiusX,
+                        RadiusY,
+                        region
                     )
                 );
             }
@@ -230,6 +358,29 @@ public class VignetteBlock : IBlock
             {
                 { _outputs[0], outputItems }
             };
+    }
+    private Rectangle GetProcessRegion(int sourceWidth, int sourceHeight)
+    {
+        int x, y, w, h;
+
+        if (IsRelative)
+        {
+            x = (int)(RectX * sourceWidth);
+            y = (int)(RectY * sourceHeight);
+            w = (int)(RectWidth * sourceWidth);
+            h = (int)(RectHeight * sourceHeight);
+        }
+        else
+        {
+            x = (int)RectX;
+            y = (int)RectY;
+            w = (int)RectWidth;
+            h = (int)RectHeight;
+        }
+
+        var rect = new Rectangle(x, y, w, h);
+        rect.Intersect(new Rectangle(0, 0, sourceWidth, sourceHeight));
+        return rect;
     }
 
     #endregion

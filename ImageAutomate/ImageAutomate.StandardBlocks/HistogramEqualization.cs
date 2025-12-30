@@ -1,44 +1,42 @@
-using System.ComponentModel;
-
-using ImageAutomate.Core;
-
-using SixLabors.ImageSharp;
+﻿using ImageAutomate.Core;
 using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Processing.Processors.Normalization;
+using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
-public class HueBlock : IBlock
+public class HistogramEqualizationBlock : IBlock
 {
     #region Fields
 
-    private readonly IReadOnlyList<Socket> _inputs = [new("Hue.In", "Image.In")];
-    private readonly IReadOnlyList<Socket> _outputs = [new("Hue.Out", "Image.Out")];
+    private readonly IReadOnlyList<Socket> _inputs = [new("HistEq.In", "Image.In")];
+    private readonly IReadOnlyList<Socket> _outputs = [new("HistEq.Out", "Image.Out")];
 
     private bool _disposed;
 
-    private float _hueShift = 0.0f;
-
-    private bool _isRelative = true;
-    private float _rectX = 0.0f;
-    private float _rectY = 0.0f;
-    private float _rectWidth = 1.0f;
-    private float _rectHeight = 1.0f;
+    // Configuration fields
+    private HistogramEqualizationMethod _method = HistogramEqualizationMethod.Global;
+    private bool _clipHistogram = true;
+    private int _clipLimit = 350;
+    private int _luminanceLevels = 256;
+    private int _numberOfTiles = 8;
+    private bool _syncChannels = true;
 
     // Layout fields
     private double _x;
     private double _y;
     private int _width;
     private int _height;
-    private string _title = "Hue";
+    private string _title = "Histogram Equalization";
 
     #endregion
 
-    public HueBlock()
-        : this(200, 100)
+    public HistogramEqualizationBlock()
+        : this(250, 200)
     {
     }
 
-    public HueBlock(int width, int height)
+    public HistogramEqualizationBlock(int width, int height)
     {
         _width = width;
         _height = height;
@@ -47,7 +45,7 @@ public class HueBlock : IBlock
     #region IBlock basic
 
     [Browsable(false)]
-    public string Name => "Hue";
+    public string Name => "HistogramEqualization";
 
     [Category("Title")]
     public string Title
@@ -64,13 +62,12 @@ public class HueBlock : IBlock
     }
 
     [Browsable(false)]
-    public string Content => $"Hue shift: {HueShift}";
+    public string Content => $"Method: {Method}";
 
     #endregion
 
     #region Layout Properties
 
-    /// <inheritdoc />
     [Category("Layout")]
     public double X
     {
@@ -85,7 +82,6 @@ public class HueBlock : IBlock
         }
     }
 
-    /// <inheritdoc />
     [Category("Layout")]
     public double Y
     {
@@ -100,7 +96,6 @@ public class HueBlock : IBlock
         }
     }
 
-    /// <inheritdoc />
     [Category("Layout")]
     public int Width
     {
@@ -115,7 +110,6 @@ public class HueBlock : IBlock
         }
     }
 
-    /// <inheritdoc />
     [Category("Layout")]
     public int Height
     {
@@ -144,100 +138,96 @@ public class HueBlock : IBlock
     #region Configuration
 
     [Category("Configuration")]
-    [Description("Hue shift in degrees. Range: -180 to +180. 0 = no change.")]
-    public float HueShift
+    [Description("Global: Apply to whole image. Adaptive: Apply locally to tiles (better detail).")]
+    public HistogramEqualizationMethod Method
     {
-        get => _hueShift;
+        get => _method;
         set
         {
-            var clamped = Math.Clamp(value, -180.0f, 180.0f);
-            if (Math.Abs(_hueShift - clamped) > float.Epsilon)
+            if (_method != value)
             {
-                _hueShift = clamped;
-                OnPropertyChanged(nameof(HueShift));
-            }
-        }
-    }
-    [Category("Region Configuration")]
-    [Description("If true, values are percentages (0.0-1.0). If false, values are pixels.")]
-    public bool IsRelative
-    {
-        get => _isRelative;
-        set
-        {
-            if (_isRelative != value)
-            {
-                _isRelative = value;
-                OnPropertyChanged(nameof(IsRelative));
+                _method = value;
+                OnPropertyChanged(nameof(Method));
+                OnPropertyChanged(nameof(Content));
             }
         }
     }
 
-    [Category("Region Configuration")]
-    [Description("X coordinate of the top-left corner.")]
-    public float RectX
+    [Category("Configuration")]
+    [Description("If true, limits the contrast amplification to avoid noise (Used in Adaptive mode).")]
+    public bool ClipHistogram
     {
-        get => _rectX;
+        get => _clipHistogram;
         set
         {
-            if (Math.Abs(_rectX - value) > float.Epsilon)
+            if (_clipHistogram != value)
             {
-                _rectX = value;
-                OnPropertyChanged(nameof(RectX));
+                _clipHistogram = value;
+                OnPropertyChanged(nameof(ClipHistogram));
             }
         }
     }
 
-    [Category("Region Configuration")]
-    [Description("Y coordinate of the top-left corner.")]
-    public float RectY
+    [Category("Configuration")]
+    [Description("The contrast limit value for clipping. Higher values allow more contrast but more noise.")]
+    public int ClipLimit
     {
-        get => _rectY;
+        get => _clipLimit;
         set
         {
-            if (Math.Abs(_rectY - value) > float.Epsilon)
+            if (_clipLimit != value)
             {
-                _rectY = value;
-                OnPropertyChanged(nameof(RectY));
+                _clipLimit = value;
+                OnPropertyChanged(nameof(ClipLimit));
             }
         }
     }
 
-    [Category("Region Configuration")]
-    [Description("Width of the region.")]
-    public float RectWidth
+    [Category("Configuration")]
+    [Description("The number of luminance levels (bins). Standard is 256 for 8-bit images.")]
+    public int LuminanceLevels
     {
-        get => _rectWidth;
+        get => _luminanceLevels;
         set
         {
-            // Đảm bảo chiều rộng không âm
-            if (value < 0) value = 0;
-
-            if (Math.Abs(_rectWidth - value) > float.Epsilon)
+            if (_luminanceLevels != value)
             {
-                _rectWidth = value;
-                OnPropertyChanged(nameof(RectWidth));
+                _luminanceLevels = value;
+                OnPropertyChanged(nameof(LuminanceLevels));
             }
         }
     }
 
-    [Category("Region Configuration")]
-    [Description("Height of the region.")]
-    public float RectHeight
+    [Category("Configuration")]
+    [Description("The number of tiles (grid size) for Adaptive mode (e.g., 8 means 8x8 grid).")]
+    public int NumberOfTiles
     {
-        get => _rectHeight;
+        get => _numberOfTiles;
         set
         {
-            // Đảm bảo chiều cao không âm
-            if (value < 0) value = 0;
-
-            if (Math.Abs(_rectHeight - value) > float.Epsilon)
+            if (_numberOfTiles != value)
             {
-                _rectHeight = value;
-                OnPropertyChanged(nameof(RectHeight));
+                _numberOfTiles = value;
+                OnPropertyChanged(nameof(NumberOfTiles));
             }
         }
     }
+
+    [Category("Configuration")]
+    [Description("Whether to synchronize equalization across color channels.")]
+    public bool SyncChannels
+    {
+        get => _syncChannels;
+        set
+        {
+            if (_syncChannels != value)
+            {
+                _syncChannels = value;
+                OnPropertyChanged(nameof(SyncChannels));
+            }
+        }
+    }
+
     #endregion
 
     #region INotifyPropertyChanged
@@ -278,16 +268,23 @@ public class HueBlock : IBlock
 
         var outputItems = new List<IBasicWorkItem>();
 
+        // Create options once
+        var options = new HistogramEqualizationOptions
+        {
+            Method = this.Method,
+            ClipHistogram = this.ClipHistogram,
+            ClipLimit = this.ClipLimit,
+            LuminanceLevels = this.LuminanceLevels,
+            NumberOfTiles = this.NumberOfTiles,
+            SyncChannels = this.SyncChannels
+        };
+
         foreach (var sourceItem in inItems.OfType<WorkItem>())
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var img = sourceItem.Image;
-            int w = img.Width;
-            int h = img.Height;
 
-            Rectangle region = GetProcessRegion(w, h);
-            if (Math.Abs(HueShift) >= 0.01f)
-                sourceItem.Image.Mutate(x => x.Hue(HueShift, region));
+            sourceItem.Image.Mutate(x => x.HistogramEqualization(options));
+
             outputItems.Add(sourceItem);
         }
 
@@ -296,29 +293,7 @@ public class HueBlock : IBlock
                 { _outputs[0], outputItems }
             };
     }
-    private Rectangle GetProcessRegion(int sourceWidth, int sourceHeight)
-    {
-        int x, y, w, h;
 
-        if (IsRelative)
-        {
-            x = (int)(RectX * sourceWidth);
-            y = (int)(RectY * sourceHeight);
-            w = (int)(RectWidth * sourceWidth);
-            h = (int)(RectHeight * sourceHeight);
-        }
-        else
-        {
-            x = (int)RectX;
-            y = (int)RectY;
-            w = (int)RectWidth;
-            h = (int)RectHeight;
-        }
-
-        var rect = new Rectangle(x, y, w, h);
-        rect.Intersect(new Rectangle(0, 0, sourceWidth, sourceHeight));
-        return rect;
-    }
     #endregion
 
     #region IDisposable

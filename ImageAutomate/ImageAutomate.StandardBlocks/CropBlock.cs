@@ -61,6 +61,11 @@ public class CropBlock : IBlock
     private int _layoutHeight;
     private string _title = "Crop";
 
+    private bool _isRelative;
+    private double _cropXRelative;
+    private double _cropYRelative;
+    private double _cropWidthRelative = 0.5;
+    private double _cropHeightRelative = 0.5;
     #endregion
 
     public CropBlock()
@@ -101,6 +106,18 @@ public class CropBlock : IBlock
     {
         get
         {
+            if (IsRelative)
+            {
+                if (CropMode is CropModeOption.Rectangle)
+                    return $"Crop Mode: {CropMode} (Relative)\n" +
+                           $"Left: {CropXRelative:P0} Top: {CropYRelative:P0}\n" +
+                           $"Width: {CropWidthRelative:P0} Height: {CropHeightRelative:P0}\n" +
+                           $"Anchor Position: {AnchorPosition}";
+
+                return $"Crop Mode: {CropMode} (Relative)\n" +
+                       $"Width: {CropWidthRelative:P0} Height: {CropHeightRelative:P0}\n" +
+                       $"Anchor Position: {AnchorPosition}";
+            }
             if (CropMode is CropModeOption.Rectangle)
                 return $"Crop Mode: {CropMode}\n" +
                        $"Left: {CropX} Top: {CropY}\n" +
@@ -311,7 +328,107 @@ public class CropBlock : IBlock
             }
         }
     }
+    /// <summary>
+    /// Gets or sets a value indicating whether crop parameters are relative (0.0-1.0) or absolute pixels.
+    /// </summary>
+    [Category("Region Configuration")]
+    [Description("If true, uses relative values (0.0-1.0) instead of pixels.")]
+    public bool IsRelative
+    {
+        get => _isRelative;
+        set
+        {
+            if (_isRelative != value)
+            {
+                _isRelative = value;
+                OnPropertyChanged(nameof(IsRelative));
+            }
+        }
+    }
 
+    /// <summary>
+    /// Gets or sets the relative X coordinate (0.0-1.0).
+    /// </summary>
+    [Category("Region Configuration")]
+    [Description("Relative Left coordinate (X) of crop origin (0.0-1.0).")]
+    public double CropXRelative
+    {
+        get => _cropXRelative;
+        set
+        {
+            if (Math.Abs(_cropXRelative - value) > double.Epsilon)
+            {
+                if (value < 0.0 || value > 1.0)
+                    throw new ArgumentOutOfRangeException(nameof(CropXRelative), "Relative X must be between 0.0 and 1.0.");
+
+                _cropXRelative = value;
+                OnPropertyChanged(nameof(CropXRelative));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the relative Y coordinate (0.0-1.0).
+    /// </summary>
+    [Category("Region Configuration")]
+    [Description("Relative Top coordinate (Y) of crop origin (0.0-1.0).")]
+    public double CropYRelative
+    {
+        get => _cropYRelative;
+        set
+        {
+            if (Math.Abs(_cropYRelative - value) > double.Epsilon)
+            {
+                if (value < 0.0 || value > 1.0)
+                    throw new ArgumentOutOfRangeException(nameof(CropYRelative), "Relative Y must be between 0.0 and 1.0.");
+
+                _cropYRelative = value;
+                OnPropertyChanged(nameof(CropYRelative));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the relative width (0.0-1.0).
+    /// </summary>
+    [Category("Region Configuration")]
+    [Description("Relative crop width (0.0-1.0).")]
+    public double CropWidthRelative
+    {
+        get => _cropWidthRelative;
+        set
+        {
+            if (Math.Abs(_cropWidthRelative - value) > double.Epsilon)
+            {
+                if (value <= 0.0 || value > 1.0)
+                    throw new ArgumentOutOfRangeException(nameof(CropWidthRelative), "Relative Width must be between 0.0 and 1.0.");
+
+                _cropWidthRelative = value;
+                OnPropertyChanged(nameof(CropWidthRelative));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the relative height (0.0-1.0).
+    /// </summary>
+    [Category("Region Configuration")]
+    [Description("Relative crop height (0.0-1.0).")]
+    public double CropHeightRelative
+    {
+        get => _cropHeightRelative;
+        set
+        {
+            if (Math.Abs(_cropHeightRelative - value) > double.Epsilon)
+            {
+                if (value <= 0.0 || value > 1.0)
+                    throw new ArgumentOutOfRangeException(nameof(CropHeightRelative), "Relative Height must be between 0.0 and 1.0.");
+
+                _cropHeightRelative = value;
+                OnPropertyChanged(nameof(CropHeightRelative));
+            }
+        }
+    }
     #endregion
 
     #region INotifyPropertyChanged
@@ -364,7 +481,9 @@ public class CropBlock : IBlock
         {
             cancellationToken.ThrowIfCancellationRequested();
             var rect = BuildCropRegion(sourceItem.Image.Width, sourceItem.Image.Height);
+
             sourceItem.Image.Mutate(x => x.Crop(rect));
+
             outputItems.Add(sourceItem);
         }
 
@@ -388,41 +507,75 @@ public class CropBlock : IBlock
             _ => throw new NotSupportedException($"CropBlock: Unsupported CropMode '{CropMode}'."),
         };
     }
+    private static Rectangle Clamp(Rectangle rect, int imageWidth, int imageHeight)
+    {
+        var imageRect = new Rectangle(0, 0, imageWidth, imageHeight);
+        rect.Intersect(imageRect);
 
+        if (rect.Width <= 0 || rect.Height <= 0)
+        {
+            return new Rectangle(0, 0, 1, 1);
+        }
+
+        return rect;
+    }
     private Rectangle BuildRectangleCropRegion(int sourceWidth, int sourceHeight)
     {
-        if (CropWidth <= 0 || CropHeight <= 0)
-            throw new InvalidOperationException("CropBlock (Rectangle): CropWidth and CropHeight must be positive.");
+        int x, y, w, h;
 
-        if (CropX >= sourceWidth || CropY >= sourceHeight)
-            throw new InvalidOperationException("CropBlock (Rectangle): CropX/CropY start outside image bounds.");
+        if (IsRelative)
+        {
+            x = (int)(CropXRelative * sourceWidth);
+            y = (int)(CropYRelative * sourceHeight);
+            w = (int)(CropWidthRelative * sourceWidth);
+            h = (int)(CropHeightRelative * sourceHeight);
+        }
+        else
+        {
+            x = CropX;
+            y = CropY;
+            w = CropWidth;
+            h = CropHeight;
+        }
 
-        return new Rectangle(CropX, CropY, CropWidth, CropHeight);
+        return Clamp(new Rectangle(x, y, w, h), sourceWidth, sourceHeight);
     }
 
     private Rectangle BuildCenteredCropRegion(int srcWidth, int srcHeight)
     {
-        if (CropWidth <= 0 || CropHeight <= 0)
-            throw new InvalidOperationException("CropBlock (Center): CropWidth and CropHeight must be positive.");
+        int w, h;
 
-        if (CropWidth > srcWidth || CropHeight > srcHeight)
-            throw new InvalidOperationException(
-                $"CropBlock (Center): Crop size {CropWidth}x{CropHeight} exceeds image bounds {srcWidth}x{srcHeight}.");
+        if (IsRelative)
+        {
+            w = (int)(CropWidthRelative * srcWidth);
+            h = (int)(CropHeightRelative * srcHeight);
+        }
+        else
+        {
+            w = CropWidth;
+            h = CropHeight;
+        }
 
-        var x = (srcWidth - CropWidth) / 2;
-        var y = (srcHeight - CropHeight) / 2;
+        var x = (srcWidth - w) / 2;
+        var y = (srcHeight - h) / 2;
 
-        return new Rectangle(x, y, CropWidth, CropHeight);
+        return Clamp(new Rectangle(x, y, w, h), srcWidth, srcHeight);
     }
 
     private Rectangle BuildAnchorCropRegion(int srcWidth, int srcHeight)
     {
-        if (CropWidth <= 0 || CropHeight <= 0)
-            throw new InvalidOperationException("CropBlock (Anchor): CropWidth and CropHeight must be positive.");
+        int w, h;
 
-        if (CropWidth > srcWidth || CropHeight > srcHeight)
-            throw new InvalidOperationException(
-                $"CropBlock (Anchor): Crop size {CropWidth}x{CropHeight} exceeds image bounds {srcWidth}x{srcHeight}.");
+        if (IsRelative)
+        {
+            w = (int)(CropWidthRelative * srcWidth);
+            h = (int)(CropHeightRelative * srcHeight);
+        }
+        else
+        {
+            w = CropWidth;
+            h = CropHeight;
+        }
 
         int x = 0, y = 0;
 
@@ -434,50 +587,50 @@ public class CropBlock : IBlock
                 break;
 
             case AnchorPositionOption.Top:
-                x = (srcWidth - CropWidth) / 2;
+                x = (srcWidth - w) / 2;
                 y = 0;
                 break;
 
             case AnchorPositionOption.TopRight:
-                x = srcWidth - CropWidth;
+                x = srcWidth - w;
                 y = 0;
                 break;
 
             case AnchorPositionOption.Left:
                 x = 0;
-                y = (srcHeight - CropHeight) / 2;
+                y = (srcHeight - h) / 2;
                 break;
 
             case AnchorPositionOption.Center:
-                x = (srcWidth - CropWidth) / 2;
-                y = (srcHeight - CropHeight) / 2;
+                x = (srcWidth - w) / 2;
+                y = (srcHeight - h) / 2;
                 break;
 
             case AnchorPositionOption.Right:
-                x = srcWidth - CropWidth;
-                y = (srcHeight - CropHeight) / 2;
+                x = srcWidth - w;
+                y = (srcHeight - h) / 2;
                 break;
 
             case AnchorPositionOption.BottomLeft:
                 x = 0;
-                y = srcHeight - CropHeight;
+                y = srcHeight - h;
                 break;
 
             case AnchorPositionOption.Bottom:
-                x = (srcWidth - CropWidth) / 2;
-                y = srcHeight - CropHeight;
+                x = (srcWidth - w) / 2;
+                y = srcHeight - h;
                 break;
 
             case AnchorPositionOption.BottomRight:
-                x = srcWidth - CropWidth;
-                y = srcHeight - CropHeight;
+                x = srcWidth - w;
+                y = srcHeight - h;
                 break;
 
             default:
                 throw new NotSupportedException($"CropBlock: Unsupported AnchorPosition '{AnchorPosition}'.");
         }
 
-        return new Rectangle(x, y, CropWidth, CropHeight);
+        return Clamp(new Rectangle(x, y, w, h), srcWidth, srcHeight);
     }
 
     #endregion

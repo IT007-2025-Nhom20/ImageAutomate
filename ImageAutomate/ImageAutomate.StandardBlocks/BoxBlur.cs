@@ -1,27 +1,22 @@
-using System.ComponentModel;
-using System.ComponentModel;
-
-using ImageAutomate.Core;
-
+﻿using ImageAutomate.Core;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Convolution;
-using SixLabors.ImageSharp.Processing;
+using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
-
-public class GaussianBlurBlock : IBlock
+public class BoxBlurBlock : IBlock
 {
     #region Fields
 
-    private readonly IReadOnlyList<Socket> _inputs = [new("GaussianBlur.In", "Image.In")];
-    private readonly IReadOnlyList<Socket> _outputs = [new("GaussianBlur.Out", "Image.Out")];
+    private readonly IReadOnlyList<Socket> _inputs = [new("BoxBlur.In", "Image.In")];
+    private readonly IReadOnlyList<Socket> _outputs = [new("BoxBlur.Out", "Image.Out")];
 
     private bool _disposed;
 
-    private float _sigma = 1.0f;
-
+    // Configuration fields
+    private int _radius = 10; // Default radius
     private BorderWrappingMode _borderWrapModeX = BorderWrappingMode.Wrap;
     private BorderWrappingMode _borderWrapModeY = BorderWrappingMode.Wrap;
 
@@ -36,16 +31,16 @@ public class GaussianBlurBlock : IBlock
     private double _y;
     private int _width;
     private int _height;
-    private string _title = "Gaussian Blur";
+    private string _title = "Box Blur";
 
     #endregion
 
-    public GaussianBlurBlock()
+    public BoxBlurBlock()
         : this(200, 100)
     {
     }
 
-    public GaussianBlurBlock(int width, int height)
+    public BoxBlurBlock(int width, int height)
     {
         _width = width;
         _height = height;
@@ -54,7 +49,7 @@ public class GaussianBlurBlock : IBlock
     #region IBlock basic
 
     [Browsable(false)]
-    public string Name => "GaussianBlur";
+    public string Name => "BoxBlur";
 
     [Category("Title")]
     public string Title
@@ -71,7 +66,7 @@ public class GaussianBlurBlock : IBlock
     }
 
     [Browsable(false)]
-    public string Content => $"Sigma: {Sigma}\nBorderModeX: {BorderWrappingModeX}\nBorderModeY: {BorderWrappingModeY}";
+    public string Content => $"Radius: {Radius}\nBorderWrapX: {BorderWrapModeX}\nBorderWrapY: {BorderWrapModeY}";
 
     #endregion
 
@@ -151,24 +146,24 @@ public class GaussianBlurBlock : IBlock
     #region Configuration
 
     [Category("Configuration")]
-    [Description("Blur intensity (sigma). Recommended range: 0.5–25.0. 0.0 = no blur.")]
-    public float Sigma
+    [Description("The radius of the blur. Higher values create a stronger, blockier blur effect.")]
+    public int Radius
     {
-        get => _sigma;
+        get => _radius;
         set
         {
-            var clamped = Math.Clamp(value, 0.0f, 25.0f);
-            if (Math.Abs(_sigma - clamped) > float.Epsilon)
+            // Radius must be at least 0.
+            var clamped = Math.Max(value, 0);
+            if (_radius != clamped)
             {
-                _sigma = clamped;
-                OnPropertyChanged(nameof(Sigma));
+                _radius = clamped;
+                OnPropertyChanged(nameof(Radius));
             }
         }
     }
-
     [Category("Configuration")]
-    [Description("Determines how horizontal borders are handled during the blur operation.")]
-    public BorderWrappingMode BorderWrappingModeX
+    [Description("Controls how pixels are extrapolated at the left/right image borders.")]
+    public BorderWrappingMode BorderWrapModeX
     {
         get => _borderWrapModeX;
         set
@@ -176,14 +171,14 @@ public class GaussianBlurBlock : IBlock
             if (_borderWrapModeX != value)
             {
                 _borderWrapModeX = value;
-                OnPropertyChanged(nameof(BorderWrappingModeX));
-            }    
+                OnPropertyChanged(nameof(BorderWrapModeX));
+            }
         }
     }
 
     [Category("Configuration")]
-    [Description("Determines how horizontal borders are handled during the blur operation.")]
-    public BorderWrappingMode BorderWrappingModeY
+    [Description("Controls how pixels are extrapolated at the top/bottom image borders.")]
+    public BorderWrappingMode BorderWrapModeY
     {
         get => _borderWrapModeY;
         set
@@ -191,11 +186,10 @@ public class GaussianBlurBlock : IBlock
             if (_borderWrapModeY != value)
             {
                 _borderWrapModeY = value;
-                OnPropertyChanged(nameof(BorderWrappingModeY));
+                OnPropertyChanged(nameof(BorderWrapModeY));
             }
         }
     }
-
     [Category("Region Configuration")]
     [Description("If true, values are percentages (0.0-1.0). If false, values are pixels.")]
     public bool IsRelative
@@ -276,6 +270,7 @@ public class GaussianBlurBlock : IBlock
             }
         }
     }
+
     #endregion
 
     #region INotifyPropertyChanged
@@ -324,8 +319,11 @@ public class GaussianBlurBlock : IBlock
             int h = img.Height;
 
             Rectangle region = GetProcessRegion(w, h);
-            if (Sigma > 0.0f)
-                sourceItem.Image.Mutate(x => x.GaussianBlur(Sigma, region, BorderWrappingModeX, BorderWrappingModeY));
+            if (Radius > 0)
+            {
+                sourceItem.Image.Mutate(x => x.BoxBlur(Radius, region, BorderWrapModeX, BorderWrapModeY));
+            }
+
             outputItems.Add(sourceItem);
         }
 
@@ -357,6 +355,7 @@ public class GaussianBlurBlock : IBlock
         rect.Intersect(new Rectangle(0, 0, sourceWidth, sourceHeight));
         return rect;
     }
+
     #endregion
 
     #region IDisposable

@@ -1,44 +1,36 @@
-using System.ComponentModel;
-
-using ImageAutomate.Core;
-
-using SixLabors.ImageSharp;
+﻿using ImageAutomate.Core;
 using SixLabors.ImageSharp.Processing;
+using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
-public class HueBlock : IBlock
+public class EntropyCropBlock : IBlock
 {
     #region Fields
 
-    private readonly IReadOnlyList<Socket> _inputs = [new("Hue.In", "Image.In")];
-    private readonly IReadOnlyList<Socket> _outputs = [new("Hue.Out", "Image.Out")];
+    private readonly IReadOnlyList<Socket> _inputs = [new("Entropy.In", "Image.In")];
+    private readonly IReadOnlyList<Socket> _outputs = [new("Entropy.Out", "Image.Out")];
 
     private bool _disposed;
 
-    private float _hueShift = 0.0f;
-
-    private bool _isRelative = true;
-    private float _rectX = 0.0f;
-    private float _rectY = 0.0f;
-    private float _rectWidth = 1.0f;
-    private float _rectHeight = 1.0f;
+    // Configuration fields
+    private float _threshold = 0.5f;
 
     // Layout fields
     private double _x;
     private double _y;
     private int _width;
     private int _height;
-    private string _title = "Hue";
+    private string _title = "Entropy Crop";
 
     #endregion
 
-    public HueBlock()
+    public EntropyCropBlock()
         : this(200, 100)
     {
     }
 
-    public HueBlock(int width, int height)
+    public EntropyCropBlock(int width, int height)
     {
         _width = width;
         _height = height;
@@ -47,7 +39,7 @@ public class HueBlock : IBlock
     #region IBlock basic
 
     [Browsable(false)]
-    public string Name => "Hue";
+    public string Name => "EntropyCrop";
 
     [Category("Title")]
     public string Title
@@ -64,7 +56,7 @@ public class HueBlock : IBlock
     }
 
     [Browsable(false)]
-    public string Content => $"Hue shift: {HueShift}";
+    public string Content => $"Threshold: {Threshold:F2}";
 
     #endregion
 
@@ -144,100 +136,21 @@ public class HueBlock : IBlock
     #region Configuration
 
     [Category("Configuration")]
-    [Description("Hue shift in degrees. Range: -180 to +180. 0 = no change.")]
-    public float HueShift
+    [Description("The entropy threshold (0.0 to 1.0). Controls how aggressively low-detail areas are removed.")]
+    public float Threshold
     {
-        get => _hueShift;
+        get => _threshold;
         set
         {
-            var clamped = Math.Clamp(value, -180.0f, 180.0f);
-            if (Math.Abs(_hueShift - clamped) > float.Epsilon)
+            var clamped = Math.Clamp(value, 0.0f, 1.0f);
+            if (Math.Abs(_threshold - clamped) > float.Epsilon)
             {
-                _hueShift = clamped;
-                OnPropertyChanged(nameof(HueShift));
-            }
-        }
-    }
-    [Category("Region Configuration")]
-    [Description("If true, values are percentages (0.0-1.0). If false, values are pixels.")]
-    public bool IsRelative
-    {
-        get => _isRelative;
-        set
-        {
-            if (_isRelative != value)
-            {
-                _isRelative = value;
-                OnPropertyChanged(nameof(IsRelative));
+                _threshold = clamped;
+                OnPropertyChanged(nameof(Threshold));
             }
         }
     }
 
-    [Category("Region Configuration")]
-    [Description("X coordinate of the top-left corner.")]
-    public float RectX
-    {
-        get => _rectX;
-        set
-        {
-            if (Math.Abs(_rectX - value) > float.Epsilon)
-            {
-                _rectX = value;
-                OnPropertyChanged(nameof(RectX));
-            }
-        }
-    }
-
-    [Category("Region Configuration")]
-    [Description("Y coordinate of the top-left corner.")]
-    public float RectY
-    {
-        get => _rectY;
-        set
-        {
-            if (Math.Abs(_rectY - value) > float.Epsilon)
-            {
-                _rectY = value;
-                OnPropertyChanged(nameof(RectY));
-            }
-        }
-    }
-
-    [Category("Region Configuration")]
-    [Description("Width of the region.")]
-    public float RectWidth
-    {
-        get => _rectWidth;
-        set
-        {
-            // Đảm bảo chiều rộng không âm
-            if (value < 0) value = 0;
-
-            if (Math.Abs(_rectWidth - value) > float.Epsilon)
-            {
-                _rectWidth = value;
-                OnPropertyChanged(nameof(RectWidth));
-            }
-        }
-    }
-
-    [Category("Region Configuration")]
-    [Description("Height of the region.")]
-    public float RectHeight
-    {
-        get => _rectHeight;
-        set
-        {
-            // Đảm bảo chiều cao không âm
-            if (value < 0) value = 0;
-
-            if (Math.Abs(_rectHeight - value) > float.Epsilon)
-            {
-                _rectHeight = value;
-                OnPropertyChanged(nameof(RectHeight));
-            }
-        }
-    }
     #endregion
 
     #region INotifyPropertyChanged
@@ -281,13 +194,9 @@ public class HueBlock : IBlock
         foreach (var sourceItem in inItems.OfType<WorkItem>())
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var img = sourceItem.Image;
-            int w = img.Width;
-            int h = img.Height;
 
-            Rectangle region = GetProcessRegion(w, h);
-            if (Math.Abs(HueShift) >= 0.01f)
-                sourceItem.Image.Mutate(x => x.Hue(HueShift, region));
+            sourceItem.Image.Mutate(x => x.EntropyCrop(Threshold));
+
             outputItems.Add(sourceItem);
         }
 
@@ -296,29 +205,7 @@ public class HueBlock : IBlock
                 { _outputs[0], outputItems }
             };
     }
-    private Rectangle GetProcessRegion(int sourceWidth, int sourceHeight)
-    {
-        int x, y, w, h;
 
-        if (IsRelative)
-        {
-            x = (int)(RectX * sourceWidth);
-            y = (int)(RectY * sourceHeight);
-            w = (int)(RectWidth * sourceWidth);
-            h = (int)(RectHeight * sourceHeight);
-        }
-        else
-        {
-            x = (int)RectX;
-            y = (int)RectY;
-            w = (int)RectWidth;
-            h = (int)RectHeight;
-        }
-
-        var rect = new Rectangle(x, y, w, h);
-        rect.Intersect(new Rectangle(0, 0, sourceWidth, sourceHeight));
-        return rect;
-    }
     #endregion
 
     #region IDisposable

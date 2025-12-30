@@ -1,44 +1,37 @@
-using System.ComponentModel;
-
-using ImageAutomate.Core;
-
-using SixLabors.ImageSharp;
+﻿using ImageAutomate.Core;
 using SixLabors.ImageSharp.Processing;
+using System.ComponentModel;
 
 namespace ImageAutomate.StandardBlocks;
 
-public class HueBlock : IBlock
+public class RotateFlipBlock : IBlock
 {
     #region Fields
 
-    private readonly IReadOnlyList<Socket> _inputs = [new("Hue.In", "Image.In")];
-    private readonly IReadOnlyList<Socket> _outputs = [new("Hue.Out", "Image.Out")];
+    private readonly IReadOnlyList<Socket> _inputs = [new("RotateFlip.In", "Image.In")];
+    private readonly IReadOnlyList<Socket> _outputs = [new("RotateFlip.Out", "Image.Out")];
 
     private bool _disposed;
 
-    private float _hueShift = 0.0f;
-
-    private bool _isRelative = true;
-    private float _rectX = 0.0f;
-    private float _rectY = 0.0f;
-    private float _rectWidth = 1.0f;
-    private float _rectHeight = 1.0f;
+    // Configuration fields
+    private RotateMode _rotateMode = RotateMode.None;
+    private FlipMode _flipMode = FlipMode.None;
 
     // Layout fields
     private double _x;
     private double _y;
     private int _width;
     private int _height;
-    private string _title = "Hue";
+    private string _title = "Rotate & Flip";
 
     #endregion
 
-    public HueBlock()
-        : this(200, 100)
+    public RotateFlipBlock()
+        : this(200, 100) 
     {
     }
 
-    public HueBlock(int width, int height)
+    public RotateFlipBlock(int width, int height)
     {
         _width = width;
         _height = height;
@@ -47,7 +40,7 @@ public class HueBlock : IBlock
     #region IBlock basic
 
     [Browsable(false)]
-    public string Name => "Hue";
+    public string Name => "RotateFlip";
 
     [Category("Title")]
     public string Title
@@ -64,7 +57,7 @@ public class HueBlock : IBlock
     }
 
     [Browsable(false)]
-    public string Content => $"Hue shift: {HueShift}";
+    public string Content => $"{RotateMode}, {FlipMode}";
 
     #endregion
 
@@ -144,100 +137,35 @@ public class HueBlock : IBlock
     #region Configuration
 
     [Category("Configuration")]
-    [Description("Hue shift in degrees. Range: -180 to +180. 0 = no change.")]
-    public float HueShift
+    [Description("Rotation step (None, 90, 180, 270). Applied before flipping.")]
+    public RotateMode RotateMode
     {
-        get => _hueShift;
+        get => _rotateMode;
         set
         {
-            var clamped = Math.Clamp(value, -180.0f, 180.0f);
-            if (Math.Abs(_hueShift - clamped) > float.Epsilon)
+            if (_rotateMode != value)
             {
-                _hueShift = clamped;
-                OnPropertyChanged(nameof(HueShift));
-            }
-        }
-    }
-    [Category("Region Configuration")]
-    [Description("If true, values are percentages (0.0-1.0). If false, values are pixels.")]
-    public bool IsRelative
-    {
-        get => _isRelative;
-        set
-        {
-            if (_isRelative != value)
-            {
-                _isRelative = value;
-                OnPropertyChanged(nameof(IsRelative));
+                _rotateMode = value;
+                OnPropertyChanged(nameof(RotateMode));
             }
         }
     }
 
-    [Category("Region Configuration")]
-    [Description("X coordinate of the top-left corner.")]
-    public float RectX
+    [Category("Configuration")]
+    [Description("Flip direction (None, Horizontal, Vertical). Applied after rotation.")]
+    public FlipMode FlipMode
     {
-        get => _rectX;
+        get => _flipMode;
         set
         {
-            if (Math.Abs(_rectX - value) > float.Epsilon)
+            if (_flipMode != value)
             {
-                _rectX = value;
-                OnPropertyChanged(nameof(RectX));
+                _flipMode = value;
+                OnPropertyChanged(nameof(FlipMode));
             }
         }
     }
 
-    [Category("Region Configuration")]
-    [Description("Y coordinate of the top-left corner.")]
-    public float RectY
-    {
-        get => _rectY;
-        set
-        {
-            if (Math.Abs(_rectY - value) > float.Epsilon)
-            {
-                _rectY = value;
-                OnPropertyChanged(nameof(RectY));
-            }
-        }
-    }
-
-    [Category("Region Configuration")]
-    [Description("Width of the region.")]
-    public float RectWidth
-    {
-        get => _rectWidth;
-        set
-        {
-            // Đảm bảo chiều rộng không âm
-            if (value < 0) value = 0;
-
-            if (Math.Abs(_rectWidth - value) > float.Epsilon)
-            {
-                _rectWidth = value;
-                OnPropertyChanged(nameof(RectWidth));
-            }
-        }
-    }
-
-    [Category("Region Configuration")]
-    [Description("Height of the region.")]
-    public float RectHeight
-    {
-        get => _rectHeight;
-        set
-        {
-            // Đảm bảo chiều cao không âm
-            if (value < 0) value = 0;
-
-            if (Math.Abs(_rectHeight - value) > float.Epsilon)
-            {
-                _rectHeight = value;
-                OnPropertyChanged(nameof(RectHeight));
-            }
-        }
-    }
     #endregion
 
     #region INotifyPropertyChanged
@@ -281,13 +209,12 @@ public class HueBlock : IBlock
         foreach (var sourceItem in inItems.OfType<WorkItem>())
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var img = sourceItem.Image;
-            int w = img.Width;
-            int h = img.Height;
 
-            Rectangle region = GetProcessRegion(w, h);
-            if (Math.Abs(HueShift) >= 0.01f)
-                sourceItem.Image.Mutate(x => x.Hue(HueShift, region));
+            if (RotateMode != RotateMode.None || FlipMode != FlipMode.None)
+            {
+                sourceItem.Image.Mutate(x => x.RotateFlip(RotateMode, FlipMode));
+            }
+
             outputItems.Add(sourceItem);
         }
 
@@ -296,29 +223,7 @@ public class HueBlock : IBlock
                 { _outputs[0], outputItems }
             };
     }
-    private Rectangle GetProcessRegion(int sourceWidth, int sourceHeight)
-    {
-        int x, y, w, h;
 
-        if (IsRelative)
-        {
-            x = (int)(RectX * sourceWidth);
-            y = (int)(RectY * sourceHeight);
-            w = (int)(RectWidth * sourceWidth);
-            h = (int)(RectHeight * sourceHeight);
-        }
-        else
-        {
-            x = (int)RectX;
-            y = (int)RectY;
-            w = (int)RectWidth;
-            h = (int)RectHeight;
-        }
-
-        var rect = new Rectangle(x, y, w, h);
-        rect.Intersect(new Rectangle(0, 0, sourceWidth, sourceHeight));
-        return rect;
-    }
     #endregion
 
     #region IDisposable
