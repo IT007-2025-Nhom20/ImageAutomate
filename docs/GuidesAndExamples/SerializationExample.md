@@ -81,7 +81,7 @@ The serialized JSON has the following structure (with optional `$schema` for Int
 
 ```json
 {
-    "$schema": "https://raw.githubusercontent.com/IT007-2025-Nhom20/ImageAutomate/project-restructure/docs/workspace-schema.json",
+    "$schema": "https://raw.githubusercontent.com/IT007-2025-Nhom20/ImageAutomate/main/docs/workspace-schema.json",
     "version": "1.0",
     "name": "My Image Processing Project",
     "graph": {
