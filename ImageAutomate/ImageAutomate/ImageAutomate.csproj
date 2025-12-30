@@ -26,11 +26,13 @@
 
 	    <RepositoryUrl>https://github.com/IT008-2025-Nhom20/ImageAutomate/</RepositoryUrl>
 
-	    <FileVersion>1.0</FileVersion>
+	    <FileVersion>1.1</FileVersion>
 
-	    <AssemblyVersion>1.0</AssemblyVersion>
+	    <AssemblyVersion>1.1</AssemblyVersion>
 
 	    <PackageIcon>3fd0311e7d0e.jpg</PackageIcon>
+
+	    <Version>$(VersionPrefix)</Version>
     </PropertyGroup>
 
   <ItemGroup>
