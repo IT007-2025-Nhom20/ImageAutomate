@@ -1,0 +1,49 @@
+==============================================================================
+PRE-INSTALLATION INFORMATION
+Project: ImageAutomate
+
+SYSTEM REQUIREMENTS
+
+Ensure the target machine meets the following minimum specifications:
+
+Operating System: Windows 10 (version 1809 or later) or Windows 11.
+
+Architecture: x64 (64-bit) processor.
+
+Memory (RAM): 4 GB minimum (8 GB recommended).
+
+Storage: 20 MB free disk space for installation.
+
+Display: Minimum resolution of 1280x720.
+
+SOFTWARE DEPENDENCIES
+
+The following runtimes are required. The installer may attempt to verify them,
+but manual installation is recommended if errors occur:
+
+Microsoft Visual C++ Redistributable 2015-2022 (x64)
+
+.NET Desktop Runtime 9.0 (if applicable to build target)
+
+INSTALLATION PRIVILEGES
+
+Administrative privileges are required to write to the Program Files
+directory and register system components.
+
+Please run this installer as an Administrator.
+
+PRE-INSTALLATION CHECKLIST
+
+[ ] Close any running instances of the application.
+[ ] Disable antivirus real-time scanning temporarily if installation fails
+due to file locking (rare).
+[ ] Ensure an active internet connection if downloading dependencies.
+
+KNOWN ISSUES
+
+Installation may require a system restart if core libraries are updated.
+
+Unicode characters in the installation path may cause runtime errors in
+legacy modules. Use standard ASCII characters for the install path.
+
+==============================================================================

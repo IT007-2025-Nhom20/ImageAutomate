@@ -1,0 +1,63 @@
+==============================================================================
+POST-INSTALLATION INFORMATION
+Project: ImageAutomate
+
+1. INSTALLATION COMPLETE
+
+The application has been successfully installed on your system. You may now
+launch ImageAutomate via the Desktop shortcut or the Start Menu entry.
+
+2. GETTING STARTED
+
+ImageAutomate is a modular, node-based image processing framework designed
+to build execution pipelines.
+
+3. BASIC USAGE:
+
+3.1. Open an existing graph or create a new one.
+3.2. Drag nodes (I/O, Transform, Effects, etc.) from the left sidebar onto
+the canvas.
+3.3. Drag from an output socket to an input socket to link nodes.
+
+4. CRITICAL RULES:
+
+- The graph must contain at least one "LoadBlock".
+- The graph must contain at least one "SourceBlock".
+- All inputs must be connected.
+- The graph must be acyclic (no infinite loops).
+
+5. EXTENSIBILITY (PLUGINS)
+
+ImageAutomate supports custom blocks via plugins.
+
+TO ADD NEW BLOCKS:
+
+1. Create a Class Library referencing "ImageAutomate.Core".
+2. Implement the "IBlock" interface.
+3. Place the compiled DLL into the application directory.
+
+6. TROUBLESHOOTING COMMON ISSUES
+
+If the application fails to start:
+
+A. Missing Runtime (.NET 9.0):
+This application requires the .NET 9.0 Desktop Runtime. If not
+installed automatically, please download it from the Microsoft website.
+
+B. Permission Denied:
+Ensure the application has write access to its directory if it attempts
+to save local configuration or logs. Run as Administrator if necessary.
+
+7. UNINSTALLATION
+
+You can remove this software via "Add or Remove Programs" in Windows Settings
+or by running "unins000.exe" in the application directory.
+
+Note: User-created graphs and logs are not removed automatically.
+
+LICENSE & CREDITS
+
+ImageAutomate is provided "as is" without warranty of any kind.
+Copyright (C) 2025 ImageAutomate Contributors. All Rights Reserved.
+
+==============================================================================
